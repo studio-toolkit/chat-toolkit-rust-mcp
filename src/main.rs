@@ -1,25 +1,22 @@
 use axum::routing::{get, post};
 use clap::Parser;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{eyre, Result};
 use rbx_studio_server::*;
-use rmcp::ServiceExt;
 use std::io;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing_subscriber::{self, EnvFilter};
+
 mod error;
 mod install;
 mod rbx_studio_server;
 
-/// Simple MCP proxy for Roblox Studio
-/// Run without arguments to install the plugin
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about = "Gemini-powered agent for Roblox Studio")]
 struct Args {
-    /// Run as MCP server on stdio
-    #[arg(short, long)]
-    stdio: bool,
+    #[arg(long)]
+    install: bool,
 }
 
 #[tokio::main]
@@ -33,11 +30,12 @@ async fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
-    if !args.stdio {
+    if args.install {
         return install::install().await;
     }
 
-    tracing::debug!("Debug MCP tracing enabled");
+    let api_key = std::env::var("GEMINI_API_KEY")
+        .map_err(|_| eyre!("GEMINI_API_KEY environment variable is not set. Please set it before running."))?;
 
     let server_state = Arc::new(Mutex::new(AppState::new()));
 
@@ -53,7 +51,7 @@ async fn main() -> Result<()> {
             .route("/response", post(response_handler))
             .route("/proxy", post(proxy_handler))
             .with_state(server_state_clone);
-        tracing::info!("This MCP instance is HTTP server listening on {STUDIO_PLUGIN_PORT}");
+        tracing::info!("HTTP server listening on port {STUDIO_PLUGIN_PORT} for Roblox Studio plugin");
         tokio::spawn(async {
             axum::serve(listener, app)
                 .with_graceful_shutdown(async move {
@@ -63,24 +61,22 @@ async fn main() -> Result<()> {
                 .unwrap();
         })
     } else {
-        tracing::info!("This MCP instance will use proxy since port is busy");
+        tracing::info!("Port busy, using proxy mode");
         tokio::spawn(async move {
             dud_proxy_loop(server_state_clone, close_rx).await;
         })
     };
 
-    // Create an instance of our counter router
-    let service = RBXStudioServer::new(Arc::clone(&server_state))
-        .serve(rmcp::transport::stdio())
-        .await
-        .inspect_err(|e| {
-            tracing::error!("serving error: {:?}", e);
-        })?;
-    service.waiting().await?;
+    let chat_result = run_chat_loop(Arc::clone(&server_state), api_key).await;
+
+    if let Err(e) = &chat_result {
+        tracing::error!("Chat loop error: {:?}", e);
+    }
 
     close_tx.send(()).ok();
-    tracing::info!("Waiting for web server to gracefully shutdown");
+    tracing::info!("Waiting for HTTP server to gracefully shutdown");
     server_handle.await.ok();
     tracing::info!("Bye!");
-    Ok(())
+
+    chat_result
 }

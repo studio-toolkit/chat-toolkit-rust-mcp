@@ -59,9 +59,11 @@
   <div id="chat-container" class="chat-empty">
     <div id="welcome">
       <div class="hero">
-        <svg class="hero-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m12 2-2 4-4-2 2 4-4 2 4 2-2 4 4-2 2 4 2-4 4 2-2-4 4-2-4-2 2-4-4 2-2-4Z" />
+        <svg class="hero-icon" width="32" height="32" viewBox="0 0 64 64" fill="none"
+          xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M60.2773 12.3887L50.8877 60.2773L3 50.8877L12.3887 3L60.2773 12.3887ZM32.9424 18.6465C32.6268 17.7606 31.3732 17.7606 31.0576 18.6465L29.7109 22.4297C28.5015 25.8277 25.8277 28.5015 22.4297 29.7109L18.6465 31.0576C17.7606 31.3732 17.7606 32.6268 18.6465 32.9424L22.4297 34.2891C25.8277 35.4985 28.5015 38.1723 29.7109 41.5703L31.0576 45.3535C31.3732 46.2394 32.6268 46.2394 32.9424 45.3535L34.2891 41.5703C35.4985 38.1723 38.1723 35.4985 41.5703 34.2891L45.3535 32.9424C46.2394 32.6268 46.2394 31.3732 45.3535 31.0576L41.5703 29.7109C38.1723 28.5015 35.4985 25.8277 34.2891 22.4297L32.9424 18.6465Z"
+            fill="var(--accent)" />
         </svg>
         <h1 class="hero-title">Moonlit chat?</h1>
       </div>
@@ -121,7 +123,6 @@
                 <div class="model-option active" data-model="gemini-3.1-pro-preview-customtools">
                   <div class="model-header">
                     <span class="model-name">Gemini 3.1 Pro P.</span>
-                    <span class="plan-badge-inline">Upgrade</span>
                   </div>
                   <div class="model-desc">Most capable for ambitious work</div>
                   <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -176,7 +177,6 @@
                   <div class="model-option" data-model="gemini-2.5-pro-preview-05-06">
                     <div class="model-header">
                       <span class="model-name">Gemini 2.5 Pro</span>
-                      <span class="plan-badge-inline">Upgrade</span>
                     </div>
                     <div class="model-desc">Previous gen, strong reasoning</div>
                     <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -252,14 +252,14 @@
             <line x1="14" y1="2" x2="14" y2="4" />
           </svg> Life stuff
         </button>
-        <button class="suggest-btn" data-preset="claude">
+        <button class="suggest-btn" data-preset="gemini">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round">
             <path
               d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.9 1.2 1.5 1.5 2.5" />
             <path d="M9 18h6" />
             <path d="M10 22h4" />
-          </svg> Claude's choice
+          </svg> Gemini's choice
         </button>
       </div>
       <div id="suggested-menu-pane" class="hidden">

@@ -2,6 +2,8 @@ const { Marked } = require("marked");
 const { markedHighlight } = require("marked-highlight");
 const hljs = require("highlight.js");
 const { shell } = require("electron");
+const os = require("os");
+const { exec } = require("child_process");
 
 const API_BASE = "http://127.0.0.1:44755";
 
@@ -63,12 +65,61 @@ let useSearch = true; // Web Grounding default ON
 let useCode = false;
 let attachedImageBase64 = null;
 let attachedImageMimeType = null;
+let userAvatarBase64 = null;
+
+async function loadUserAvatar() {
+    return new Promise((resolve) => {
+        if (os.platform() === 'darwin') {
+            const username = os.userInfo().username;
+            exec(`dscl . -read /Users/${username} JPEGPhoto | tail -n +2 | xxd -r -p | base64`, (err, stdout) => {
+                const b64 = stdout ? stdout.trim() : "";
+                if (!err && b64.length > 100) {
+                    userAvatarBase64 = `data:image/jpeg;base64,${b64}`;
+                }
+                resolve();
+            });
+        } else {
+            resolve();
+        }
+    });
+}
 
 function initTheme() {
     const saved = localStorage.getItem("theme") || "dark";
     document.documentElement.setAttribute("data-theme", saved);
     updateThemeIcons(saved);
     updateHljsTheme(saved);
+
+    const motivationalPhrases = [
+        "Let's build something amazing.",
+        "Ready to create some magic?",
+        "Time to write brilliant code.",
+        "Your next big idea starts here.",
+        "Let's make today productive.",
+        "Code, create, conquer.",
+        "What are we building today?",
+        "Unleash your creativity.",
+        "Focus on the solution, not the problem.",
+        "Precision in every line of code.",
+        "Architect the future, today.",
+        "Commit to excellence.",
+        "Master complexity with elegant design.",
+        "Your code shapes the digital world.",
+        "Stay disciplined. Stay focused.",
+        "Transform logic into magic.",
+        "Push your boundaries.",
+        "Every error is a step towards perfection.",
+        "Simplicity is the ultimate sophistication.",
+        "Write code that matters.",
+        "Challenge the impossible.",
+        "Elevate your engineering.",
+        "Solve hard problems."
+    ];
+    const headerTitle = document.querySelector(".hero-title");
+    if (headerTitle) {
+        const randomPhrase = motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)];
+        headerTitle.textContent = randomPhrase;
+    }
 }
 
 function toggleTheme() {
@@ -163,14 +214,34 @@ function addMessage(role, content, extraNodes = []) {
 
     const avatarEl = document.createElement("div");
     avatarEl.className = `message-avatar ${role}`;
-    avatarEl.textContent = role === "user" ? "Y" : "G";
+    const displayName = role === "user" ? os.hostname() : currentModel;
+
+    if (role === "user") {
+        if (userAvatarBase64) {
+            avatarEl.innerHTML = `<img src="${userAvatarBase64}" alt="User Profile"/>`;
+        } else {
+            avatarEl.textContent = displayName.charAt(0).toUpperCase();
+        }
+    } else {
+        avatarEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.3825 28.3045C22.4796 26.4903 26.4903 22.4796 28.3045 17.3825L31.0579 9.64686C31.3733 8.76063 32.6267 8.76063 32.9421 9.64686L35.6955 17.3825C37.5097 22.4796 41.5204 26.4903 46.6175 28.3045L54.3531 31.0579C55.2394 31.3733 55.2394 32.6267 54.3531 32.9421L46.6175 35.6955C41.5204 37.5097 37.5097 41.5204 35.6955 46.6175L32.9421 54.3531C32.6267 55.2394 31.3733 55.2394 31.0579 54.3531L28.3045 46.6175C26.4903 41.5204 22.4796 37.5097 17.3825 35.6955L9.64686 32.9421C8.76063 32.6267 8.76063 31.3733 9.64686 31.0579L17.3825 28.3045Z" fill="var(--accent)"/></svg>`;
+    }
 
     const roleEl = document.createElement("span");
     roleEl.className = "message-role";
-    roleEl.textContent = role === "user" ? "You" : "Gemini";
+    roleEl.textContent = displayName;
+
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const fullTimeString = now.toLocaleString();
+
+    const timeEl = document.createElement("span");
+    timeEl.className = "message-time";
+    timeEl.textContent = ` - ${timeString}`;
+    timeEl.title = fullTimeString;
 
     headerEl.appendChild(avatarEl);
     headerEl.appendChild(roleEl);
+    headerEl.appendChild(timeEl);
 
     const contentEl = document.createElement("div");
     contentEl.className = "message-content";
@@ -179,16 +250,12 @@ function addMessage(role, content, extraNodes = []) {
         extraNodes.forEach(node => contentEl.appendChild(node));
     }
 
-    if (role === "user") {
-        const textNode = document.createElement("div");
-        textNode.textContent = content;
-        contentEl.appendChild(textNode);
-    } else {
-        const markdownNode = document.createElement("div");
-        markdownNode.innerHTML = renderMarkdown(content);
+    const markdownNode = document.createElement("div");
+    markdownNode.innerHTML = renderMarkdown(content);
+    if (role === "assistant") {
         addCopyButtons(markdownNode);
-        contentEl.appendChild(markdownNode);
     }
+    contentEl.appendChild(markdownNode);
 
     innerEl.appendChild(headerEl);
     innerEl.appendChild(contentEl);
@@ -224,14 +291,25 @@ function addTypingIndicator() {
 
     const avatarEl = document.createElement("div");
     avatarEl.className = "message-avatar assistant";
-    avatarEl.textContent = "G";
+    const displayName = currentModel;
+    avatarEl.innerHTML = `<svg width="22" height="22" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.3825 28.3045C22.4796 26.4903 26.4903 22.4796 28.3045 17.3825L31.0579 9.64686C31.3733 8.76063 32.6267 8.76063 32.9421 9.64686L35.6955 17.3825C37.5097 22.4796 41.5204 26.4903 46.6175 28.3045L54.3531 31.0579C55.2394 31.3733 55.2394 32.6267 54.3531 32.9421L46.6175 35.6955C41.5204 37.5097 37.5097 41.5204 35.6955 46.6175L32.9421 54.3531C32.6267 55.2394 31.3733 55.2394 31.0579 54.3531L28.3045 46.6175C26.4903 41.5204 22.4796 37.5097 17.3825 35.6955L9.64686 32.9421C8.76063 32.6267 8.76063 31.3733 9.64686 31.0579L17.3825 28.3045Z" fill="var(--accent)"/></svg>`;
 
     const roleEl = document.createElement("span");
     roleEl.className = "message-role";
-    roleEl.textContent = "Gemini";
+    roleEl.textContent = displayName;
+
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const fullTimeString = now.toLocaleString();
+
+    const timeEl = document.createElement("span");
+    timeEl.className = "message-time";
+    timeEl.textContent = ` - ${timeString}`;
+    timeEl.title = fullTimeString;
 
     headerEl.appendChild(avatarEl);
     headerEl.appendChild(roleEl);
+    headerEl.appendChild(timeEl);
 
     const contentEl = document.createElement("div");
     contentEl.className = "message-content";
@@ -289,7 +367,7 @@ function addThinkingSection(parentEl, thoughtText) {
         // Update existing
         const summaryEl = chainEl.querySelector(".thought-summary");
         const bodyEl = chainEl.querySelector(".thought-chain-body");
-        summaryEl.textContent = summaryLine;
+        summaryEl.innerHTML = marked.parseInline(summaryLine);
         bodyEl.innerHTML = '';
         const timelineEl = buildTimeline(detailLines);
         bodyEl.appendChild(timelineEl);
@@ -307,7 +385,7 @@ function addThinkingSection(parentEl, thoughtText) {
 
     const summaryEl = document.createElement("span");
     summaryEl.className = "thought-summary";
-    summaryEl.textContent = summaryLine;
+    summaryEl.innerHTML = marked.parseInline(summaryLine);
 
     const chevron = `<svg class="thought-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>`;
 
@@ -362,7 +440,7 @@ function buildTimeline(lines) {
 
         const textEl = document.createElement("div");
         textEl.className = "thought-timeline-text";
-        textEl.textContent = line.trim();
+        textEl.innerHTML = marked.parseInline(line.trim());
 
         item.appendChild(iconEl);
         item.appendChild(textEl);
@@ -400,7 +478,8 @@ function addToolCall(parentEl, name, args, status) {
 
     const bodyEl = document.createElement("div");
     bodyEl.className = "tool-call-body";
-    bodyEl.textContent = typeof args === "string" ? args : JSON.stringify(args, null, 2);
+    const argsStr = typeof args === "string" ? args : JSON.stringify(args, null, 2);
+    bodyEl.innerHTML = `<pre><code class="hljs language-json">${hljs.highlight(argsStr, { language: 'json' }).value}</code></pre>`;
 
     headerEl.addEventListener("click", () => {
         headerEl.classList.toggle("expanded");
@@ -555,7 +634,9 @@ async function sendMessage() {
             const refs = toolCalls[key];
             if (refs) {
                 refs.statusEl.textContent = "completed";
-                refs.bodyEl.textContent += "\n\n--- Result ---\n" + payload.result;
+                const currentText = refs.bodyEl.textContent;
+                const newText = currentText + "\n\n--- Result ---\n" + payload.result;
+                refs.bodyEl.innerHTML = `<pre><code class="hljs language-json">${hljs.highlightAuto(newText).value}</code></pre>`;
             }
         });
 
@@ -580,21 +661,26 @@ async function sendMessage() {
         evtSource.addEventListener("done", () => {
             evtSource.close();
 
-            // Extract thought chain before removing tracking indicator
+            // Instead of just collecting inner nodes and removing the typing message which destroys them
             const typingMsg = document.getElementById("typing-message");
             const extraNodes = [];
             if (typingMsg) {
-                const thoughtChain = typingMsg.querySelector('.thought-chain');
-                if (thoughtChain) {
-                    extraNodes.push(thoughtChain);
-                }
+                // Relocate nodes from typingMsg directly to extraNodes list
+                const nodesToKeep = typingMsg.querySelectorAll('.thought-chain, .tool-call');
+                nodesToKeep.forEach(node => {
+                    extraNodes.push(node);
+                });
+            }
+
+            if (finalText) {
+                // addMessage will append extraNodes
+                addMessage("assistant", finalText, extraNodes);
+            } else if (extraNodes.length > 0) {
+                // Even if no text, keep the thought chain
+                addMessage("assistant", "", extraNodes);
             }
 
             removeTypingIndicator();
-
-            if (finalText) {
-                addMessage("assistant", finalText, extraNodes);
-            }
 
             isProcessing = false;
             sendBtn.disabled = false;
@@ -787,7 +873,7 @@ const promptsData = {
         "Özgüven geliştirmek için yapılabilecek zihinsel egzersizler",
         "Yaratıcılığı tetikleyen hobiler nelerdir?"
     ],
-    claude: [
+    gemini: [
         "Bana daha önce hiç duymadığım ilginç bir felsefi paradoks anlat",
         "Mars'ta kurulacak ilk koloninin bir gününü hayal et",
         "Eğer hayvanlar konuşabilseydi dünya nasıl bir yer olurdu?",
@@ -1053,6 +1139,7 @@ btnCode.addEventListener("click", () => {
 
 async function init() {
     initTheme();
+    await loadUserAvatar();
     const hasKey = await checkStatus();
     if (!hasKey) {
         showModal();

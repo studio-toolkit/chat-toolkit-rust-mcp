@@ -1,18 +1,18 @@
 :root {
-  --bg-primary: #252423;
-  --bg-secondary: #252423;
-  --bg-tertiary: #2a2928;
+  --bg-primary: #191b1f;
+  --bg-secondary: #191b1f;
+  --bg-tertiary: #202227;
 
-  --bg-input: #31302f;
-  --bg-input-focus: #31302f;
+  --bg-input: #292b31;
+  --bg-input-focus: #292b31;
   --bg-hover: rgba(255, 255, 255, 0.08);
-  --bg-message-user: #31302f;
+  --bg-message-user: #292b31;
   --bg-message-assistant: transparent;
 
   --bg-tool-call: rgba(255, 255, 255, 0.04);
-  --bg-modal: #2a2a2a;
+  --bg-modal: #22242a;
   --bg-modal-overlay: rgba(0, 0, 0, 0.6);
-  --bg-code: #1e1e1e;
+  --bg-code: #16171a;
   --bg-code-inline: rgba(255, 255, 255, 0.1);
   --bg-blockquote: rgba(255, 255, 255, 0.05);
 
@@ -28,9 +28,9 @@
   --text-link: #ececec;
   --text-code: #e2e8f0;
 
-  --accent: #d07154;
-  --accent-hover: #e07d5d;
-  --accent-glow: rgba(208, 113, 84, 0.2);
+  --accent: #216BFF;
+  --accent-hover: #1e61e6;
+  --accent-glow: rgba(33, 107, 255, 0.2);
 
   --status-connected: #34d399;
   --status-disconnected: #f87171;
@@ -82,9 +82,9 @@
   --text-link: #303030;
   --text-code: #1f2937;
 
-  --accent: #d07154;
-  --accent-hover: #c06549;
-  --accent-glow: rgba(208, 113, 84, 0.1);
+  --accent: #216BFF;
+  --accent-hover: #1b5ada;
+  --accent-glow: rgba(33, 107, 255, 0.1);
 
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
@@ -322,10 +322,10 @@ body {
 }
 
 .hero-title {
-  font-family: var(--font-serif);
-  font-size: 34px;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
   animation: heroEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
 }
@@ -465,7 +465,7 @@ body {
 
 #btn-send {
   background: var(--accent);
-  color: var(--bg-primary);
+  color: #ffffff;
   border: none;
   width: 28px;
   height: 28px;
@@ -1196,8 +1196,57 @@ input:checked+.slider:before {
   align-items: flex-start;
 }
 
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+
+.message-inner.user .message-header {
+  flex-direction: row-reverse;
+}
+
 .message-avatar {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: transparent;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.message-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.message-avatar svg {
+  width: 100%;
+  height: 100%;
+}
+
+.message-role {
+  font-family: "SF Mono", "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.message-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  cursor: default;
+}
+
+.message-time:hover {
+  opacity: 1;
 }
 
 .message-content {
@@ -1649,7 +1698,15 @@ input:checked+.slider:before {
   animation-delay: 0.4s;
 }
 
+/* Tool Call Specific Overrides */
+.tool-call-body .code-header {
+  display: none;
+}
 
+.tool-call-body pre {
+  margin: 0;
+  border-radius: var(--radius-sm);
+}
 
 /* Modal / Settings Overlay */
 #modal-overlay {
@@ -1866,7 +1923,7 @@ input[type=range]::-webkit-slider-runnable-track {
 
 .btn-primary {
   background: var(--accent);
-  color: var(--bg-primary);
+  color: #ffffff;
   border: none;
   padding: 8px 16px;
   border-radius: var(--radius-sm);

@@ -78,6 +78,24 @@ async function loadUserAvatar() {
                 }
                 resolve();
             });
+        } else if (os.platform() === 'win32') {
+            // Windows 10/11 typically stores the current user's picture path in this registry key
+            const script = `
+            $path = (Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\AccountPicture' -Name 'SourceId' -ErrorAction SilentlyContinue).SourceId;
+            if ($path -and (Test-Path $path)) {
+                [Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
+            }
+            `;
+            exec(`powershell -NoProfile -Command "${script.replace(/\n/g, '')}"`, (err, stdout) => {
+                const b64 = stdout ? stdout.trim() : "";
+                if (!err && b64.length > 100) {
+                    // Windows Account pictures can be JPEG or PNG. Data URI jpeg works nicely for both if base64 content is valid, 
+                    // or we check the magic bytes. We'll default to jpeg or png based on header, or just use image/jpeg as a fallback.
+                    const mime = b64.startsWith("/9j/") ? "image/jpeg" : "image/png";
+                    userAvatarBase64 = `data:${mime};base64,${b64}`;
+                }
+                resolve();
+            });
         } else {
             resolve();
         }

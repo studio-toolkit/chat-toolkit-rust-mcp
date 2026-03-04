@@ -1,11 +1,131 @@
 const { Marked } = require("marked");
 const { markedHighlight } = require("marked-highlight");
 const hljs = require("highlight.js");
-const { shell } = require("electron");
+const { shell, ipcRenderer } = require("electron");
 const os = require("os");
+const path = require("path");
 const { exec } = require("child_process");
+const fs = require("fs");
 
 const API_BASE = "http://127.0.0.1:44755";
+
+// ─── i18n System ───────────────────────────────────────────────
+const SUPPORTED_LANGS = ["en", "tr", "ru", "pt", "de", "nl", "fr", "it", "es", "pl", "bg", "sr", "be"];
+let currentLang = {};
+let currentLangCode = "en";
+
+function loadLanguageSync(code) {
+    const langPath = path.join(__dirname, "lang", `${code}.json`);
+    try {
+        const raw = fs.readFileSync(langPath, "utf-8");
+        currentLang = JSON.parse(raw);
+        currentLangCode = code;
+    } catch (err) {
+        console.error(`Failed to load language ${code}:`, err);
+        // Fallback to English
+        if (code !== "en") loadLanguageSync("en");
+    }
+}
+
+// Resolve dotted key like "settings.title"
+function t(key, replacements) {
+    const keys = key.split(".");
+    let val = currentLang;
+    for (const k of keys) {
+        if (val && typeof val === "object" && k in val) {
+            val = val[k];
+        } else {
+            return key; // fallback: return key itself
+        }
+    }
+    if (typeof val === "string" && replacements) {
+        for (const [rk, rv] of Object.entries(replacements)) {
+            val = val.replace(`{${rk}}`, rv);
+        }
+    }
+    return val;
+}
+
+let cachedFullName = null;
+function getSystemFullName() {
+    if (cachedFullName) return cachedFullName;
+    try {
+        cachedFullName = os.userInfo().username;
+    } catch (e) {
+        cachedFullName = os.hostname().split(".")[0] || "User";
+    }
+
+    if (cachedFullName) {
+        cachedFullName = cachedFullName.charAt(0).toUpperCase() + cachedFullName.slice(1);
+    }
+    return cachedFullName || "User";
+}
+
+// Apply translations to all elements with data-i18n attribute
+function applyTranslations() {
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        const translated = t(key);
+        if (typeof translated === "string") {
+            el.textContent = translated;
+        }
+    });
+
+    // Apply placeholder translations
+    document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-placeholder");
+        const translated = t(key);
+        if (typeof translated === "string") {
+            el.placeholder = translated;
+        }
+    });
+
+    // Apply title translations
+    document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+        const key = el.getAttribute("data-i18n-title");
+        const translated = t(key);
+        if (typeof translated === "string") {
+            el.title = translated;
+        }
+    });
+
+    const motivationalPhrases = t("landing.motivationalPhrases");
+    const headerTitle = document.querySelector(".hero-title");
+    if (headerTitle && Array.isArray(motivationalPhrases) && motivationalPhrases.length > 0) {
+        if (!headerTitle.hasAttribute('data-set-lang') || headerTitle.getAttribute('data-set-lang') !== currentLangCode) {
+            const randomPhrase = motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)];
+            headerTitle.textContent = randomPhrase;
+            headerTitle.setAttribute('data-set-lang', currentLangCode);
+        }
+    }
+
+    const greetingEl = document.getElementById("hero-greeting");
+    if (greetingEl) {
+        try {
+            const name = getSystemFullName();
+            greetingEl.textContent = t("landing.hello", { name });
+        } catch (e) {
+            greetingEl.textContent = t("landing.hello", { name: os.hostname().split(".")[0] || "User" });
+        }
+    }
+}
+
+function detectOSLanguage() {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || "en";
+    const langCode = locale.split("-")[0].toLowerCase();
+    return SUPPORTED_LANGS.includes(langCode) ? langCode : "en";
+}
+
+function initLanguage() {
+    const saved = localStorage.getItem("app_language");
+    const code = saved || detectOSLanguage();
+    loadLanguageSync(code);
+    localStorage.setItem("app_language", code);
+    applyTranslations();
+    // Set dropdown value
+    const langSelect = document.getElementById("language-select");
+    if (langSelect) langSelect.value = code;
+}
 
 const marked = new Marked(
     markedHighlight({
@@ -33,6 +153,8 @@ const settingsBtn = document.getElementById("btn-settings");
 const ghostBtn = document.getElementById("btn-ghost");
 const modelBtn = document.getElementById("btn-model-select");
 const modelPopover = document.getElementById("model-popover");
+const moreModelsBtn = document.getElementById("more-models-btn");
+const moreModelsSection = document.getElementById("more-models-section");
 const modalOverlay = document.getElementById("modal-overlay");
 const apiKeyInput = document.getElementById("api-key-input");
 const saveKeyBtn = document.getElementById("btn-save-key");
@@ -59,12 +181,13 @@ const tempVal = document.getElementById("temp-val");
 
 // State Variables
 let isProcessing = false;
-let currentModel = "gemini-3.1-pro-preview-customtools";
+let currentModel = "gemini-1.5-pro";
 let currentThinkingLevel = "none"; // Disabled by default until toggle is checked
 let useSearch = true; // Web Grounding default ON
 let useCode = false;
 let attachedImageBase64 = null;
 let attachedImageMimeType = null;
+let isExplainingError = false; // Guard flag to prevent recursive error loops
 let userAvatarBase64 = null;
 
 async function loadUserAvatar() {
@@ -103,40 +226,31 @@ async function loadUserAvatar() {
 }
 
 function initTheme() {
-    const saved = localStorage.getItem("theme") || "dark";
-    document.documentElement.setAttribute("data-theme", saved);
-    updateThemeIcons(saved);
-    updateHljsTheme(saved);
+    const saved = localStorage.getItem("theme");
+    let theme;
+    if (saved) {
+        theme = saved;
+    } else {
+        // Detect OS color scheme (works on macOS & Windows)
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        theme = prefersDark ? "dark" : "light";
+        localStorage.setItem("theme", theme);
+    }
+    document.documentElement.setAttribute("data-theme", theme);
+    updateThemeIcons(theme);
+    updateHljsTheme(theme);
 
-    const motivationalPhrases = [
-        "Let's build something amazing.",
-        "Ready to create some magic?",
-        "Time to write brilliant code.",
-        "Your next big idea starts here.",
-        "Let's make today productive.",
-        "Code, create, conquer.",
-        "What are we building today?",
-        "Unleash your creativity.",
-        "Focus on the solution, not the problem.",
-        "Precision in every line of code.",
-        "Architect the future, today.",
-        "Commit to excellence.",
-        "Master complexity with elegant design.",
-        "Your code shapes the digital world.",
-        "Stay disciplined. Stay focused.",
-        "Transform logic into magic.",
-        "Push your boundaries.",
-        "Every error is a step towards perfection.",
-        "Simplicity is the ultimate sophistication.",
-        "Write code that matters.",
-        "Challenge the impossible.",
-        "Elevate your engineering.",
-        "Solve hard problems."
-    ];
-    const headerTitle = document.querySelector(".hero-title");
-    if (headerTitle) {
-        const randomPhrase = motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)];
-        headerTitle.textContent = randomPhrase;
+    // Listen for OS theme changes in real-time
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            const newTheme = e.matches ? "dark" : "light";
+            document.documentElement.setAttribute("data-theme", newTheme);
+            localStorage.setItem("theme", newTheme);
+            updateThemeIcons(newTheme);
+            updateHljsTheme(newTheme);
+            updateThemeIcons(newTheme);
+            updateHljsTheme(newTheme);
+        });
     }
 }
 
@@ -173,16 +287,16 @@ async function checkStatus() {
         const data = await res.json();
         if (data.api_key_set) {
             statusDot.className = "connected";
-            statusText.textContent = "Connected to Gemini";
+            statusText.textContent = t("status.connected");
             return true;
         } else {
             statusDot.className = "disconnected";
-            statusText.textContent = "API key not set";
+            statusText.textContent = t("status.apiKeyNotSet");
             return false;
         }
     } catch {
         statusDot.className = "disconnected";
-        statusText.textContent = "Server not running";
+        statusText.textContent = t("status.serverNotRunning");
         return false;
     }
 }
@@ -196,16 +310,53 @@ async function setApiKey(key) {
     return res.ok;
 }
 
-function showModal() {
+let savedApiKeyLoaded = false; // Track if the displayed key is the masked saved one
+
+async function showModal() {
     modalOverlay.classList.remove("hidden");
+
+    // If we have a saved key, show masked version
+    try {
+        const result = await ipcRenderer.invoke("load-api-key");
+        if (result.key) {
+            const key = result.key;
+            // Mask: show first 4 and last 4, rest as dots
+            const masked = key.length > 8
+                ? key.substring(0, 4) + "•".repeat(key.length - 8) + key.substring(key.length - 4)
+                : "•".repeat(key.length);
+            apiKeyInput.value = masked;
+            apiKeyInput.type = "password";
+            savedApiKeyLoaded = true;
+        } else {
+            apiKeyInput.value = "";
+            savedApiKeyLoaded = false;
+        }
+    } catch {
+        savedApiKeyLoaded = false;
+    }
+
     apiKeyInput.focus();
 }
+
+// When user starts typing, clear the masked key
+apiKeyInput.addEventListener("focus", () => {
+    if (savedApiKeyLoaded) {
+        apiKeyInput.value = "";
+        apiKeyInput.placeholder = t("settings.enterNewKey");
+        savedApiKeyLoaded = false;
+    }
+});
+
+// Prevent copying the masked value
+apiKeyInput.addEventListener("copy", (e) => {
+    e.preventDefault();
+});
 
 function hideModal() {
     modalOverlay.classList.add("hidden");
 }
 
-function addMessage(role, content, extraNodes = []) {
+function addMessage(role, content, extraNodes = [], images = []) {
     const chatContainer = document.getElementById("chat-container");
     if (chatContainer.classList.contains("chat-empty")) {
         if (document.startViewTransition) {
@@ -232,7 +383,7 @@ function addMessage(role, content, extraNodes = []) {
 
     const avatarEl = document.createElement("div");
     avatarEl.className = `message-avatar ${role}`;
-    const displayName = role === "user" ? os.hostname() : currentModel;
+    const displayName = role === "user" ? getSystemFullName() : currentModel;
 
     if (role === "user") {
         if (userAvatarBase64) {
@@ -264,6 +415,21 @@ function addMessage(role, content, extraNodes = []) {
     const contentEl = document.createElement("div");
     contentEl.className = "message-content";
 
+    // Render attached images at top of message
+    if (images.length > 0) {
+        const imageRow = document.createElement("div");
+        imageRow.className = "message-images";
+        images.forEach(imgSrc => {
+            const thumb = document.createElement("img");
+            thumb.className = "message-image-thumb";
+            thumb.src = imgSrc;
+            thumb.alt = "Attached image";
+            thumb.addEventListener("click", () => openImageLightbox(imgSrc));
+            imageRow.appendChild(thumb);
+        });
+        contentEl.appendChild(imageRow);
+    }
+
     if (extraNodes.length > 0) {
         extraNodes.forEach(node => contentEl.appendChild(node));
     }
@@ -282,6 +448,250 @@ function addMessage(role, content, extraNodes = []) {
     scrollToBottom();
 
     return contentEl;
+}
+
+// Fullscreen image lightbox
+function openImageLightbox(src) {
+    let overlay = document.getElementById("image-lightbox");
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "image-lightbox";
+        overlay.innerHTML = `
+            <button class="lightbox-close" id="lightbox-close">&times;</button>
+            <img class="lightbox-img" id="lightbox-img" draggable="false" />
+        `;
+        document.body.appendChild(overlay);
+
+        const closeBtn = overlay.querySelector("#lightbox-close");
+        const img = overlay.querySelector("#lightbox-img");
+
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragStartTX = 0;
+        let dragStartTY = 0;
+
+        function applyTransform() {
+            img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        }
+
+        // Close button
+        closeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            overlay.classList.remove("active");
+        });
+
+        // Click background to close (only if not zoomed)
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay && scale <= 1) {
+                overlay.classList.remove("active");
+            }
+        });
+
+        // Click image to toggle zoom
+        img.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (!isDragging) {
+                if (scale <= 1) {
+                    scale = 2.5;
+                    translateX = 0;
+                    translateY = 0;
+                } else {
+                    scale = 1;
+                    translateX = 0;
+                    translateY = 0;
+                }
+                applyTransform();
+                img.style.cursor = scale > 1 ? "grab" : "zoom-in";
+            }
+        });
+
+        // Mouse drag to pan when zoomed
+        img.addEventListener("mousedown", (e) => {
+            if (scale > 1) {
+                e.preventDefault();
+                isDragging = false;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                dragStartTX = translateX;
+                dragStartTY = translateY;
+                img.style.cursor = "grabbing";
+                img.style.transition = "none"; // Instant movement
+
+                const onMove = (ev) => {
+                    const dx = ev.clientX - dragStartX;
+                    const dy = ev.clientY - dragStartY;
+                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) isDragging = true;
+                    translateX = dragStartTX + dx;
+                    translateY = dragStartTY + dy;
+                    applyTransform();
+                };
+
+                const onUp = () => {
+                    document.removeEventListener("mousemove", onMove);
+                    document.removeEventListener("mouseup", onUp);
+                    img.style.transition = "transform 0.2s ease"; // Restore
+                    img.style.cursor = scale > 1 ? "grab" : "zoom-in";
+                    setTimeout(() => { isDragging = false; }, 10);
+                };
+
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup", onUp);
+            }
+        });
+
+        // Scroll wheel zoom
+        overlay.addEventListener("wheel", (e) => {
+            e.preventDefault();
+            scale += e.deltaY * -0.003;
+            scale = Math.min(Math.max(0.5, scale), 8);
+            if (scale <= 1) { translateX = 0; translateY = 0; }
+            applyTransform();
+            img.style.cursor = scale > 1 ? "grab" : "zoom-in";
+        }, { passive: false });
+
+        // Reset state
+        overlay._reset = () => {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            isDragging = false;
+            img.style.transform = "translate(0px, 0px) scale(1)";
+            img.style.cursor = "zoom-in";
+        };
+    }
+
+    overlay._reset();
+    overlay.querySelector("#lightbox-img").src = src;
+    overlay.classList.add("active");
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+
+    let icon = '';
+    if (type === 'error') {
+        icon = `<svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    } else if (type === 'warning') {
+        icon = `<svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+    } else {
+        icon = `<svg class="toast-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+    }
+
+    toast.innerHTML = `${icon}<span>${message}</span>`;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add("removing");
+        toast.addEventListener("animationend", () => {
+            toast.remove();
+        });
+    }, 5000);
+}
+
+async function fetchModels() {
+    try {
+        const res = await fetch(`${API_BASE}/chat/models`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const models = data.models || [];
+        if (models.length === 0) return;
+
+        const popover = document.getElementById("model-popover");
+        const divider = popover.querySelector(".popover-divider");
+
+        let current = popover.firstChild;
+        while (current && current !== divider) {
+            let next = current.nextSibling;
+            if (current.classList && current.classList.contains("model-option")) {
+                popover.removeChild(current);
+            }
+            current = next;
+        }
+
+        const moreSection = document.getElementById("more-models-section");
+        moreSection.innerHTML = "";
+
+        // Sort prioritized: prefer 3.1 > 2.5 > 2.0 > 1.5 (newest first)
+        const scoreName = (name) => {
+            if (name.includes('3.1')) return 4;
+            if (name.includes('2.5')) return 3;
+            if (name.includes('2.0')) return 2;
+            if (name.includes('1.5')) return 1;
+            return 0;
+        };
+
+        function createModelOption(model, isActive = false) {
+            const div = document.createElement("div");
+            div.className = `model-option${isActive ? " active" : ""}`;
+            const shortName = model.name.split("/").pop();
+            div.setAttribute("data-model", shortName);
+
+            const displayName = model.display_name || shortName;
+            const rawDesc = model.description || '';
+            const desc = rawDesc.length > 60 ? rawDesc.substring(0, 60) + '…' : rawDesc;
+
+            div.innerHTML = `
+                <div class="model-header">
+                    <span class="model-name">${displayName}</span>
+                </div>
+                <div class="model-desc">${desc}</div>
+                <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            `;
+
+            div.addEventListener("click", () => {
+                selectModel(div);
+            });
+
+            return div;
+        }
+
+
+        const allSorted = [...models].sort((a, b) => scoreName(b.name) - scoreName(a.name));
+
+        // Top 3 go in main list, rest go under More models
+        const topModels = allSorted.slice(0, 3);
+        const moreModels = allSorted.slice(3);
+
+        topModels.forEach((m) => {
+            const shortName = m.name.split("/").pop();
+            const div = createModelOption(m, shortName === currentModel);
+            popover.insertBefore(div, divider);
+        });
+
+        // Auto-select the first model and update button label
+        const firstModel = popover.querySelector(".model-option");
+        if (firstModel) {
+            selectModel(firstModel, false);
+        }
+
+        moreModels.forEach(m => {
+            const shortName = m.name.split("/").pop();
+            const div = createModelOption(m, shortName === currentModel);
+            moreSection.appendChild(div);
+        });
+
+    } catch (err) {
+        console.error("Failed to fetch models:", err);
+    }
+}
+
+function selectModel(opt, hidePopover = true) {
+    document.querySelectorAll(".model-option").forEach(o => o.classList.remove("active"));
+    opt.classList.add("active");
+    currentModel = opt.getAttribute("data-model");
+    const textLabel = opt.querySelector(".model-name").textContent.trim();
+    modelBtn.innerHTML = `${textLabel} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:4px;"><path d="m6 9 6 6 6-6"/></svg>`;
+    if (hidePopover) modelPopover.classList.add("hidden");
 }
 
 function addTypingIndicator() {
@@ -340,7 +750,7 @@ function addTypingIndicator() {
         <div class="dot-group">
             <span></span><span></span><span></span>
         </div>
-        <span class="status-text">Bağlantı kuruluyor...</span>
+        <span class="status-text">${t("status.connecting")}</span>
     `;
 
     contentEl.appendChild(connectingEl);
@@ -565,6 +975,110 @@ function autoResize() {
     inputEl.style.height = Math.min(inputEl.scrollHeight, 150) + "px";
 }
 
+// Parse error strings like "Gemini API returned status 400 Bad Request: { "error": { ... } }"
+function parseErrorMessage(rawError, fallbackCode) {
+    let message = rawError;
+    let code = fallbackCode || '';
+
+    // Try direct JSON parse
+    try {
+        const parsed = JSON.parse(rawError);
+        if (parsed.error) {
+            message = parsed.error.message || rawError;
+            code = parsed.error.code || fallbackCode;
+            return { message, code };
+        }
+    } catch { /* not pure JSON */ }
+
+    // Try extracting JSON from a prefix string like "... Bad Request: { ... }"
+    const jsonMatch = rawError.match(/\{[\s\S]*"error"[\s\S]*\}/);
+    if (jsonMatch) {
+        try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.error) {
+                message = parsed.error.message || rawError;
+                code = parsed.error.code || fallbackCode;
+                return { message, code };
+            }
+        } catch { /* couldn't parse extracted JSON */ }
+    }
+
+    return { message, code };
+}
+
+// Send error to a reliable AI model for user-friendly explanation
+async function explainErrorWithAI(errorCode, toastMsg, rawError) {
+    // Guard: if we're already explaining an error, don't try again (prevents infinite loops)
+    if (isExplainingError) {
+        addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+        isProcessing = false;
+        sendBtn.disabled = false;
+        return;
+    }
+
+    isExplainingError = true;
+    const explanationModel = "gemini-2.0-flash";
+    const prompt = t("errors.aiExplainPrompt", { errorCode, toastMsg, rawError });
+
+    try {
+        const explainRes = await fetch(`${API_BASE}/chat/send`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                message: prompt,
+                model: explanationModel,
+                thinking_level: "none",
+                temperature: 0.7,
+            }),
+        });
+        if (explainRes.ok) {
+            const explainData = await explainRes.json();
+            const chatId = explainData.chat_id;
+            addTypingIndicator();
+            const explainSource = new EventSource(`${API_BASE}/chat/events/${chatId}`);
+            let explainText = '';
+            explainSource.addEventListener("text", (ev) => {
+                const p = JSON.parse(ev.data);
+                explainText += p.content;
+            });
+            explainSource.addEventListener("done", () => {
+                explainSource.close();
+                removeTypingIndicator();
+                if (explainText) addMessage("assistant", explainText);
+                isProcessing = false;
+                sendBtn.disabled = false;
+                isExplainingError = false;
+            });
+            explainSource.addEventListener("error_msg", () => {
+                explainSource.close();
+                removeTypingIndicator();
+                addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+                isProcessing = false;
+                sendBtn.disabled = false;
+                isExplainingError = false;
+            });
+            explainSource.onerror = () => {
+                explainSource.close();
+                removeTypingIndicator();
+                addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+                isProcessing = false;
+                sendBtn.disabled = false;
+                isExplainingError = false;
+            };
+        } else {
+            addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+            isProcessing = false;
+            sendBtn.disabled = false;
+            isExplainingError = false;
+        }
+    } catch {
+        addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+        isProcessing = false;
+        sendBtn.disabled = false;
+        isExplainingError = false;
+    }
+}
+
 async function sendMessage() {
     const text = inputEl.value.trim();
     if (!text || isProcessing) return;
@@ -574,7 +1088,24 @@ async function sendMessage() {
     inputEl.value = "";
     autoResize();
 
-    addMessage("user", text);
+    // Capture image for display before clearing
+    const messageImages = [];
+    let sendImageBase64 = null;
+    let sendImageMime = null;
+    if (attachedImageBase64 && attachedImageMimeType) {
+        messageImages.push(`data:${attachedImageMimeType};base64,${attachedImageBase64}`);
+        sendImageBase64 = attachedImageBase64;
+        sendImageMime = attachedImageMimeType;
+
+        // Clear attachment
+        attachedImageBase64 = null;
+        attachedImageMimeType = null;
+        imagePreview.classList.add("hidden");
+        previewImg.src = "";
+        imageUpload.value = "";
+    }
+
+    addMessage("user", text, [], messageImages);
 
     const assistantContent = addTypingIndicator();
 
@@ -593,16 +1124,9 @@ async function sendMessage() {
         payload.system_instruction = sysPrompt;
     }
 
-    if (attachedImageBase64 && attachedImageMimeType) {
-        payload.image_base64 = attachedImageBase64;
-        payload.image_mime_type = attachedImageMimeType;
-
-        // Clear attachment upon send
-        attachedImageBase64 = null;
-        attachedImageMimeType = null;
-        imagePreview.classList.add("hidden");
-        previewImg.src = "";
-        imageUpload.value = "";
+    if (sendImageBase64 && sendImageMime) {
+        payload.image_base64 = sendImageBase64;
+        payload.image_mime_type = sendImageMime;
     }
 
     try {
@@ -614,10 +1138,12 @@ async function sendMessage() {
 
         if (!res.ok) {
             const errText = await res.text();
+            const { message: toastMessage, code: errorCode } = parseErrorMessage(errText, res.status);
             removeTypingIndicator();
-            addMessage("assistant", `Error: ${errText}`);
-            isProcessing = false;
-            sendBtn.disabled = false;
+            showToast(toastMessage, "error");
+
+            // Send error to AI model for explanation using a reliable model
+            await explainErrorWithAI(errorCode, toastMessage, errText);
             return;
         }
 
@@ -705,27 +1231,34 @@ async function sendMessage() {
             inputEl.focus();
         });
 
-        evtSource.addEventListener("error_msg", (e) => {
+        evtSource.addEventListener("error_msg", async (e) => {
             evtSource.close();
             removeTypingIndicator();
             const payload = JSON.parse(e.data);
-            addMessage("assistant", `Error: ${payload.error}`);
-            isProcessing = false;
-            sendBtn.disabled = false;
+            const rawError = payload.error;
+            const { message: toastMsg, code: errorCode } = parseErrorMessage(rawError, '');
+            showToast(toastMsg, "error");
+
+            // Send error to AI for explanation using a reliable model
+            await explainErrorWithAI(errorCode, toastMsg, rawError);
         });
 
         evtSource.onerror = () => {
             evtSource.close();
             removeTypingIndicator();
             if (!finalText) {
-                addMessage("assistant", "Connection lost. Please try again.");
+                const msg = "Connection lost. Please try again.";
+                addMessage("assistant", msg);
+                showToast(msg, "error");
             }
             isProcessing = false;
             sendBtn.disabled = false;
         };
     } catch (err) {
         removeTypingIndicator();
-        addMessage("assistant", `Connection error: ${err.message}`);
+        const msg = `Connection error: ${err.message}`;
+        addMessage("assistant", msg);
+        showToast(msg, "error");
         isProcessing = false;
         sendBtn.disabled = false;
     }
@@ -734,29 +1267,27 @@ async function sendMessage() {
 modelBtn.addEventListener("click", (e) => {
     e.stopPropagation();
 
-    // Check if we should open Up or Down based on screen space
     const rect = modelBtn.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const popoverHeight = 350; // Estimated max height based on clamp
+    const titlebarHeight = document.getElementById("titlebar").offsetHeight || 44;
+    const spaceAbove = rect.top - titlebarHeight - 8; // Don't overflow past titlebar
+    const spaceBelow = window.innerHeight - rect.bottom - 16;
+    const popoverHeight = 350;
 
     if (spaceBelow < popoverHeight && !document.getElementById("chat-container").classList.contains("chat-empty")) {
         modelPopover.classList.add("open-up");
+        modelPopover.style.maxHeight = Math.max(200, spaceAbove) + "px";
     } else {
         modelPopover.classList.remove("open-up");
+        modelPopover.style.maxHeight = Math.max(200, spaceAbove) + "px";
     }
 
     modelPopover.classList.toggle("hidden");
 });
 
-// Handle Model Selection
+// Handle Model Selection — fallback for hardcoded HTML models
 document.querySelectorAll(".model-option").forEach(opt => {
     opt.addEventListener("click", () => {
-        document.querySelectorAll(".model-option").forEach(o => o.classList.remove("active"));
-        opt.classList.add("active");
-        currentModel = opt.getAttribute("data-model");
-        const textLabel = opt.querySelector(".model-name").textContent.trim();
-        modelBtn.innerHTML = `${textLabel} <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:4px;"><path d="m6 9 6 6 6-6"/></svg>`;
-        modelPopover.classList.add("hidden");
+        selectModel(opt);
     });
 });
 
@@ -822,93 +1353,9 @@ document.getElementById("more-models-btn").addEventListener("click", (e) => {
     }
 });
 
-const promptsData = {
-    write: [
-        "Blog yazım için yaratıcı başlık fikirleri ver",
-        "Kısa bir motivasyon konuşması yaz",
-        "Bu sabah yaşadığım komik bir olayı hikayeleştir",
-        "Resmi bir toplantı daveti e-postası tasarla",
-        "Bir bilim kurgu romanı için karakter betimlemesi yap",
-        "Müşteriye gönderilecek nazik bir ret e-postası yaz",
-        "İlgi çekici bir LinkedIn gönderisi taslağı oluştur",
-        "Yeni başlayanlar için yoga hakkında bilgilendirici bir metin yaz",
-        "İstanbul'un tarihi mekanlarını anlatan turistik bir broşür metni hazırla",
-        "Zaman yolculuğu temalı bir mini öykü yaz",
-        "Bir teknoloji ürününün lansmanı için heyecan verici bir basın bülteni oluştur",
-        "Kahve kültürü üzerine düşündürücü bir deneme kaleme al",
-        "Freelance çalışanlar için verimlilik üzerine bir manifesto yaz",
-        "Sosyal medya için 5 farklı 'Tarihte Bugün' formatlı bilgi metni hazırla",
-        "Zorlu bir hafta geçiren bir arkadaşıma moral veren bir şiir yaz"
-    ],
-    learn: [
-        "Kuantum fiziğini 5 yaşındaki birine anlatır gibi açıkla",
-        "Rönesans döneminin sanata etkilerini özetle",
-        "Yapay zeka modelleri ağırlıklarını nasıl günceller?",
-        "Fransız devriminin ana nedenleri nelerdi?",
-        "Uzay-zaman eğriliği ne anlama geliyor?",
-        "Blockchain teknolojisinin çalışma mantığını basitçe açıkla",
-        "Genetik mühendisliğinde CRISPR yönteminin önemi nedir?",
-        "Roma İmparatorluğu'nun çöküş sürecini adım adım anlat",
-        "Kara deliklerin etrafındaki 'Olay Ufku' kavramını detaylandır",
-        "Dinozorların yok oluş teorilerini karşılaştırmalı olarak açıkla",
-        "Psikolojide 'Bilişsel Çelişki' nedir ve günlük hayattaki örnekleri nelerdir?",
-        "Modern mimarinin doğuşu ve temel prensipleri hakkında bilgi ver",
-        "Güneş sistemindeki gezegenlerin isimleri nereden gelmektedir?",
-        "Küresel ısınmanın okyanus akıntılarına etkisini anlat",
-        "İnsan beynindeki nöroplastisite kavramı ne demektir?"
-    ],
-    code: [
-        "React ile basit bir sayaç componenti yaz",
-        "Python'da list comprehension nasıl kullanılır?",
-        "REST API ile GraphQL arasındaki temel farklar nelerdir?",
-        "Rust dilinde 'Borrow Checking' konseptini açıkla",
-        "JavaScript'te async/await yapısını örnekle",
-        "Docker ve Kubernetes arasındaki temel farklar nelerdir?",
-        "SQL'de JOIN türlerini (INNER, LEFT, RIGHT, FULL) örneklerle açıkla",
-        "Bir web projesinde CI/CD pipeline nasıl kurulur?",
-        "TypeScript kullanmanın JavaScript'e göre avantajları nelerdir?",
-        "Git'te 'rebase' ve 'merge' farkı nedir? Hangisi ne zaman kullanılmalı?",
-        "C++ dilinde pointer'ların çalışma mantığı ve bellek yönetimi",
-        "Vue.js ile React'in lifecycle metotlarını karşılaştır",
-        "Microservices mimarisinin avantajları ve dezavantajları nelerdir?",
-        "Hata ayıklama (debugging) sürecimi hızlandıracak 5 ipucu ver",
-        "Güvenli bir şifreleme algoritması tasarlarken nelere dikkat edilmeli?"
-    ],
-    life: [
-        "Daha verimli ders çalışmak için taktikler ver",
-        "Günlük stresle başa çıkmak için 5 basit yöntem söyle",
-        "Sağlıklı bir uyku düzeni nasıl oluşturabilirim?",
-        "Zaman yönetimimi geliştirmek için ne yapmalıyım?",
-        "Kitap okuma alışkanlığı kazanmak için öneriler ver",
-        "Güne enerjik başlamak için bir sabah rutini oluştur",
-        "Sağlıklı beslenme alışkanlığı edinmek için küçük adımlar öner",
-        "Etkili iletişim becerilerimi nasıl geliştirebilirim?",
-        "Evde kolayca yapılabilecek 15 dakikalık bir egzersiz programı hazırla",
-        "Meditasyon yapmaya yeni başlayan biri için temel adımlar nelerdir?",
-        "Ekran süresini azaltmak için dijital detoks tavsiyeleri ver",
-        "Yeni bir dil öğrenirken kullanılabilecek uygulamalı stratejiler",
-        "Kişisel bütçe ve harcama takibi için pratik yöntemler paylaş",
-        "Özgüven geliştirmek için yapılabilecek zihinsel egzersizler",
-        "Yaratıcılığı tetikleyen hobiler nelerdir?"
-    ],
-    gemini: [
-        "Bana daha önce hiç duymadığım ilginç bir felsefi paradoks anlat",
-        "Mars'ta kurulacak ilk koloninin bir gününü hayal et",
-        "Eğer hayvanlar konuşabilseydi dünya nasıl bir yer olurdu?",
-        "Bana ilham verecek, çok bilinmeyen tarihi bir anekdot paylaş",
-        "Gelecekteki ulaşım teknolojileri hakkında tahminlerde bulun",
-        "İnsan zihninin sınırlarını zorlayan bir bilim kurgu teorisi üret",
-        "Doğada bulunan matematiğin (Altın Oran, Fibonacci) gizemi",
-        "Eğer zaman yolculuğu icat edilseydi yazılacak ilk ahlak kuralları",
-        "Rüyaların bilimsel açıklaması ve lucid rüya (bilinçli rüya) deneyimleri",
-        "Tarihin akışını değiştiren tesadüfi 5 büyük icat",
-        "Evrendeki olası farklı yaşam formlarının kimyasal yapısı",
-        "Müzik ve insan psikolojisi arasındaki derin bağlantıyı açıkla",
-        "Kendi kendine öğrenen evrimsel algoritmaların yaratacağı senaryolar",
-        "Sanal gerçeklik dünyasında geçen bir detektiflik hikayesi başlat",
-        "Bilmediğimiz bir mitolojiden esinlenerek yeni bir tanrı/tanrıça yarat"
-    ]
-};
+function getPromptsData() {
+    return t("prompts") || {};
+}
 
 const suggestedMenuPane = document.getElementById("suggested-menu-pane");
 const suggestedMenuList = document.getElementById("suggested-menu-list");
@@ -941,7 +1388,8 @@ document.querySelectorAll(".suggest-btn").forEach(btn => {
     btn.addEventListener("click", () => {
         const preset = btn.getAttribute("data-preset");
         const title = btn.textContent.trim();
-        const basePrompts = promptsData[preset] || [];
+        const fetchedPrompts = t(`prompts.${preset}`);
+        const basePrompts = Array.isArray(fetchedPrompts) ? fetchedPrompts : [];
         const randomPrompts = getRandomPrompts(basePrompts, 5);
 
         // SVG Transfer
@@ -1044,14 +1492,45 @@ inputEl.addEventListener("input", () => {
 });
 
 saveKeyBtn.addEventListener("click", async () => {
+    // 1. Handle Language Save First
+    const langSelect = document.getElementById("language-select");
+    if (langSelect && langSelect.value !== currentLangCode) {
+        const newLang = langSelect.value;
+        loadLanguageSync(newLang);
+        localStorage.setItem("app_language", newLang);
+        applyTranslations();
+
+        // Clear open suggested prompts so they reload in new language when clicked
+        suggestedMenuPane.classList.add("hidden");
+        suggestedMenuPane.classList.remove("visible");
+        document.querySelectorAll(".suggest-btn").forEach(b => b.classList.remove("expanded"));
+    }
+
     const key = apiKeyInput.value.trim();
-    if (!key) {
-        hideModal(); // Allow closing without key to change other settings
-        return;
+
+    // If key is empty or contains masked dots, check if we already have a saved key
+    if (!key || key.includes("\u2022")) {
+        const result = await ipcRenderer.invoke("load-api-key");
+        if (result.key) {
+            // Key already saved, just close
+            apiKeyInput.placeholder = t("settings.enterNewKey");
+            hideModal();
+            return;
+        } else {
+            // No key saved, and no language change just happened? We need a key.
+            // If they just changed language but have no key, still force them to enter a key.
+            const existing = document.querySelector("#modal-body .error-text");
+            if (existing) existing.remove();
+            const err = document.createElement("p");
+            err.className = "error-text";
+            err.textContent = t("settings.enterApiKey");
+            document.getElementById("modal-body").appendChild(err);
+            return;
+        }
     }
 
     saveKeyBtn.disabled = true;
-    saveKeyBtn.textContent = "Kaydediliyor...";
+    saveKeyBtn.textContent = t("settings.saving");
 
     const existing = document.querySelector("#modal-body .error-text");
     if (existing) existing.remove();
@@ -1059,24 +1538,27 @@ saveKeyBtn.addEventListener("click", async () => {
     try {
         const success = await setApiKey(key);
         if (success) {
+            await ipcRenderer.invoke("save-api-key", key);
+            apiKeyInput.placeholder = "AIza...";
             hideModal();
             await checkStatus();
+            await fetchModels();
             inputEl.focus();
         } else {
             const err = document.createElement("p");
             err.className = "error-text";
-            err.textContent = "API Key reddedildi.";
+            err.textContent = t("settings.apiKeyRejected");
             document.getElementById("modal-body").appendChild(err);
         }
     } catch {
         const err = document.createElement("p");
         err.className = "error-text";
-        err.textContent = "Sunucuya bağlanılamıyor.";
+        err.textContent = t("settings.cannotConnect");
         document.getElementById("modal-body").appendChild(err);
     }
 
     saveKeyBtn.disabled = false;
-    saveKeyBtn.textContent = "Kaydet & Kapat";
+    saveKeyBtn.textContent = t("settings.saveAndClose");
 });
 
 toggleKeyBtn.addEventListener("click", () => {
@@ -1128,6 +1610,53 @@ imageUpload.addEventListener("change", (e) => {
     reader.readAsDataURL(file);
 });
 
+// Make the input preview image clickable
+previewImg.addEventListener("click", () => {
+    if (previewImg.src) {
+        openImageLightbox(previewImg.src);
+    }
+});
+previewImg.style.cursor = "pointer";
+
+// Ctrl+V paste image support
+document.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+        if (item.type.startsWith("image/")) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const fullDataUrl = ev.target.result;
+                const parts = fullDataUrl.split(",");
+                const mimeLine = parts[0];
+                attachedImageMimeType = mimeLine.match(/:(.*?);/)[1];
+                attachedImageBase64 = parts[1];
+
+                previewImg.src = fullDataUrl;
+                imagePreview.classList.remove("hidden");
+                btnAttach.classList.add("active");
+            };
+            reader.readAsDataURL(file);
+            break;
+        }
+    }
+});
+
+// Escape key to close lightbox
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        const lightbox = document.getElementById("image-lightbox");
+        if (lightbox && lightbox.classList.contains("active")) {
+            lightbox.classList.remove("active");
+        }
+    }
+});
+
 btnRemoveImg.addEventListener("click", () => {
     attachedImageBase64 = null;
     attachedImageMimeType = null;
@@ -1156,13 +1685,34 @@ btnCode.addEventListener("click", () => {
 });
 
 async function init() {
+    initLanguage();
     initTheme();
     await loadUserAvatar();
+
+    // Try to restore saved API key from encrypted storage
+    try {
+        const result = await ipcRenderer.invoke("load-api-key");
+        if (result.key) {
+            await setApiKey(result.key);
+        }
+    } catch (err) {
+        console.error("Failed to load saved API key:", err);
+    }
+
+    // Migrate from localStorage if exists (one-time)
+    const oldKey = localStorage.getItem("gemini_api_key");
+    if (oldKey) {
+        await setApiKey(oldKey);
+        await ipcRenderer.invoke("save-api-key", oldKey);
+        localStorage.removeItem("gemini_api_key");
+    }
+
     const hasKey = await checkStatus();
     if (!hasKey) {
         showModal();
     } else {
         inputEl.focus();
+        await fetchModels();
     }
 
     setInterval(checkStatus, 30000);

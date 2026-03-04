@@ -245,6 +245,34 @@ pub struct GeminiCandidate {
     pub content: Option<GeminiContent>,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct GeminiModel {
+    pub name: String,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(rename = "baseModelId", default)]
+    pub base_model_id: Option<String>,
+    #[serde(rename = "displayName", default)]
+    pub display_name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(rename = "inputTokenLimit", default)]
+    pub input_token_limit: Option<u64>,
+    #[serde(rename = "outputTokenLimit", default)]
+    pub output_token_limit: Option<u64>,
+    #[serde(rename = "supportedGenerationMethods", default)]
+    pub supported_generation_methods: Vec<String>,
+    #[serde(default)]
+    pub thinking: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ListModelsResponse {
+    pub models: Vec<GeminiModel>,
+    #[serde(rename = "nextPageToken", default)]
+    pub next_page_token: Option<String>,
+}
+
 pub fn build_tool_declarations() -> Vec<ToolDeclaration> {
     vec![ToolDeclaration {
         function_declarations: Some(vec![
@@ -912,6 +940,65 @@ pub async fn status_handler(
     Ok(Json(StatusResponse {
         api_key_set: app_state.api_key.is_some(),
     }))
+}
+
+pub async fn models_handler(
+    State(state): State<PackedState>,
+) -> Result<impl IntoResponse> {
+    let api_key = {
+        let app_state = state.lock().await;
+        app_state.api_key.clone()
+    };
+
+    let api_key = match api_key {
+        Some(key) => key,
+        None => return Err(Report::from(eyre!("API key not set"))),
+    };
+
+    let client = reqwest::Client::new();
+    let mut all_models: Vec<GeminiModel> = Vec::new();
+    let mut page_token: Option<String> = None;
+    
+    loop {
+        let mut url = format!("https://generativelanguage.googleapis.com/v1beta/models?key={}&pageSize=1000", api_key);
+        if let Some(ref token) = page_token {
+            url.push_str(&format!("&pageToken={}", token));
+        }
+        
+        let res = client.get(&url).send().await?;
+        if !res.status().is_success() {
+            let txt = res.text().await?;
+            return Err(Report::from(eyre!("Failed to fetch models: {}", txt)));
+        }
+        
+        let data: ListModelsResponse = res.json().await?;
+        all_models.extend(data.models);
+        
+        match data.next_page_token {
+            Some(token) if !token.is_empty() => page_token = Some(token),
+            _ => break,
+        }
+    }
+    
+    // Filter models that support generateContent
+    let filtered_models: Vec<GeminiModel> = all_models
+        .into_iter()
+        .filter(|m| m.supported_generation_methods.iter().any(|s| s == "generateContent"))
+        .filter(|m| {
+            // Exclude models that don't support function calling (tools)
+            let name = m.name.to_lowercase();
+            let short = name.split('/').last().unwrap_or(&name);
+            !short.starts_with("gemma")
+                && !short.contains("-tts")
+                && !short.starts_with("embedding-")
+                && !short.starts_with("text-embedding-")
+                && !short.contains("-aqa")
+                && !short.starts_with("imagen-")
+                && !short.starts_with("learnlm-")
+        })
+        .collect();
+        
+    Ok(Json(ListModelsResponse { models: filtered_models, next_page_token: None }))
 }
 
 pub async fn request_handler(State(state): State<PackedState>) -> Result<impl IntoResponse> {

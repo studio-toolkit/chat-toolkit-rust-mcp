@@ -1,0 +1,178 @@
+{
+    "meta": {
+        "name": "Nederlands",
+        "code": "nl"
+    },
+    "settings": {
+        "title": "Instellingen",
+        "subtitle": "Verbinding en modelconfiguratie.",
+        "apiKeyLabel": "Google Gemini API-sleutel",
+        "toggleKeyTitle": "Tonen/Verbergen",
+        "getApiKey": "API-sleutel ophalen →",
+        "systemInstructions": "Systeeminstructies",
+        "systemInstructionsPlaceholder": "bijv. Je bent een ervaren softwarearchitect...",
+        "temperatureLabel": "Temperatuur (Creativiteit)",
+        "temperatureDesc": "Laag=Nauwkeurig/Analytisch, Hoog=Creatief",
+        "languageLabel": "Taal",
+        "saveAndClose": "Opslaan & Sluiten",
+        "saving": "Opslaan...",
+        "apiKeyRejected": "API-sleutel werd geweigerd.",
+        "cannotConnect": "Kan geen verbinding maken met de server.",
+        "enterApiKey": "Voer a.u.b. een API-sleutel in om door te gaan.",
+        "enterNewKey": "Voer nieuwe sleutel in of laat leeg..."
+    },
+    "titlebar": {
+        "settingsTitle": "Instellingen",
+        "closeSuggestedMenu": "Sluiten"
+    },
+    "status": {
+        "connected": "Verbonden met Gemini",
+        "apiKeyNotSet": "API-sleutel niet ingesteld",
+        "serverNotRunning": "Server draait niet",
+        "connecting": "Verbinden..."
+    },
+    "models": {
+        "moreModels": "Meer modellen"
+    },
+    "chat": {
+        "inputPlaceholder": "Stuur een bericht..."
+    },
+    "landing": {
+        "motivationalPhrases": [
+            "Laten we iets fantastisch bouwen.",
+            "Klaar om wat magie te creëren?",
+            "Tijd om briljante code te schrijven.",
+            "Jouw volgende grote geluid begint hier.",
+            "Laten we vandaag productief maken.",
+            "Codeer, creëer, verover.",
+            "Wat bouwen we vandaag?",
+            "Ontketen je creativiteit.",
+            "Focus op de oplossing, niet op het probleem.",
+            "Precisie in elke regel code.",
+            "Zet de toekomst vandaag in de steigers.",
+            "Toegewijd aan uitmuntendheid.",
+            "Beheers complexiteit met elegant design.",
+            "Jouw code vormt de digitale wereld.",
+            "Blijf gedisciplineerd. Blijf gefocust.",
+            "Transformeer logica in magie.",
+            "Verleg je grenzen.",
+            "Elke fout is een stap naar perfectie.",
+            "Eenvoud is de ultieme verfijning.",
+            "Schrijf code die ertoe doet.",
+            "Daag het onmogelijke uit.",
+            "Til je engineering naar een hoger niveau.",
+            "Los moeilijke problemen op."
+        ],
+        "placeholder": "Hoe kan ik je vandaag helpen?",
+        "suggestWrite": "Schrijven",
+        "suggestLearn": "Leren",
+        "suggestCode": "Code",
+        "suggestLife": "Dagelijks leven",
+        "suggestGemini": "Selectie van Gemini",
+        "hello": "Hallo {name}"
+    },
+    "tooltips": {
+        "attach": "Afbeelding toevoegen",
+        "search": "Zoeken op web",
+        "send": "Verzenden",
+        "code": "Python Code Uitvoeren"
+    },
+    "modelsConfig": {
+        "extendedThinking": "Uitgebreid nadenken",
+        "thinkComplex": "Denk langer na voor complexe taken",
+        "thinkLow": "Laag",
+        "thinkMed": "Gemiddeld",
+        "thinkHigh": "Hoog",
+        "descPro": "Meest capabele vlaggenschipmodel",
+        "descFlash": "Snel en efficiënt model"
+    },
+    "errors": {
+        "aiExplainPrompt": "Ik ontving een API-fout. Leg deze fout kort uit aan de gebruiker, wat hem veroorzaakte en hoe hij kan worden opgelost. Antwoord in het Nederlands.\\n\\nFoutcode: {errorCode}\\nFoutmelding: {toastMsg}\\nVolledige fout: {rawError}"
+    },
+    "prompts": {
+        "write": [
+            "Geef me creatieve titelideeën voor mijn blogpost",
+            "Schrijf een korte motiverende toespraak",
+            "Verander een grappig ochtendincident in een verhaal",
+            "Stel een formele uitnodiging voor een vergadering op",
+            "Maak een karakterbeschrijving voor een sci-fi-roman",
+            "Schrijf een beleefde afwijzing-e-mail naar een klant",
+            "Maak een schets voor een boeiende LinkedIn-post",
+            "Schrijf een informatieve tekst over yoga voor beginners",
+            "Schrijf een kort verhaal over tijdreizen",
+            "Maak een spannend persbericht voor onze productlancering",
+            "Schrijf een tot nadenken stemmend essay over koffiecultuur",
+            "Schrijf een productiviteitsmanifest voor freelancers",
+            "Maak 5 verschillende 'Op deze dag in de geschiedenis'-posts",
+            "Schrijf een opbeurend gedicht voor een vriend"
+        ],
+        "learn": [
+            "Leg kwantumfysica uit alsof ik een 5-jarige ben",
+            "Vat de invloed van de Renaissance op de kunst samen",
+            "Hoe updaten AI-modellen hun gewichten?",
+            "Wat waren de belangrijkste oorzaken van de Franse Revolutie?",
+            "Wat betekent ruimtetijdkromming?",
+            "Leg eenvoudig uit hoe blockchain-technologie werkt",
+            "Wat is het belang van CRISPR in genetische manipulatie?",
+            "Beschrijf de val van het Romeinse Rijk stap voor stap",
+            "Werk het concept van de 'waarnemingshorizon' rond zwarte gaten uit",
+            "Vergelijk theorieën over het uitsterven van de dinosauriërs",
+            "Wat is 'Cognitieve Dissonantie' in de psychologie?",
+            "Vertel me over de geboorte van de moderne architectuur",
+            "Waar komen de namen van de planeten vandaan?",
+            "Leg het effect van de opwarming van de aarde op zeestromingen uit",
+            "Wat betekent het concept van neuroplasticiteit in het brein?"
+        ],
+        "code": [
+            "Schrijf een eenvoudige tellercomponent in React",
+            "Hoe gebruik je list comprehension in Python?",
+            "Wat zijn de belangrijkste verschillen tussen REST API en GraphQL?",
+            "Leg het 'Borrow Checking'-concept in Rust uit",
+            "Toon async/await in JavaScript met een voorbeeld",
+            "Wat zijn de verschillen tussen Docker en Kubernetes?",
+            "Leg SQL JOIN-types (INNER, LEFT, RIGHT, FULL) uit met voorbeelden",
+            "Hoe zet je een CI/CD-pipeline op voor een webproject?",
+            "Wat zijn de voordelen van TypeScript over JavaScript?",
+            "Wat is het verschil tussen git rebase en merge?",
+            "Hoe werken pointers in C++ en geheugenbeheer",
+            "Vergelijk Vue.js en React lifecycle-methoden",
+            "Wat zijn de voor- en nadelen van een microservices-architectuur?",
+            "Geef me 5 tips om mijn debug-proces te versnellen",
+            "Waar moet ik op letten bij het ontwerpen van cryptografie?"
+        ],
+        "life": [
+            "Geef tips om effectiever te studeren",
+            "Vertel me 5 simpele methoden om met dagelijkse stress om te gaan",
+            "Hoe kan ik een gezonde slaaproutine opbouwen?",
+            "Wat moet ik doen om mijn tijdmanagement te verbeteren?",
+            "Geef suggesties voor het opbouwen van een leesgewoonte",
+            "Creëer een ochtendroutine om de dag energiek te beginnen",
+            "Stel kleine stappen voor om gezond te eten",
+            "Hoe kan ik mijn communicatieve vaardigheden verbeteren?",
+            "Maak een trainingsprogramma van 15 minuten voor thuis",
+            "Wat zijn de basisstappen voor meditatie voor beginners?",
+            "Geef digital detox-tips om schermtijd te verminderen",
+            "Praktische strategieën voor het leren van een nieuwe taal",
+            "Deel praktische methoden voor persoonlijke budgettering",
+            "Mentale oefeningen om meer zelfvertrouwen op te bouwen",
+            "Welke hobby's stimuleren creativiteit?"
+        ],
+        "gemini": [
+            "Vertel me over een fascinerende filosofische paradox",
+            "Stel je een dag voor in de eerste kolonie op Mars",
+            "Hoe zou de wereld zijn als dieren konden praten?",
+            "Deel een inspirerende, onbekende historische anekdote",
+            "Maak voorspellingen over toekomstige transporttechnologieën",
+            "Genereer een sci-fi theorie die het menselijk verstand te boven gaat",
+            "Het mysterie van de wiskunde in de natuur (Gulden Snede)",
+            "De eerste morele regels als tijdreizen zouden worden uitgevonden",
+            "Wetenschappelijke uitleg van dromen en lucide dromen",
+            "5 grote toevallige uitvindingen die de geschiedenis veranderden",
+            "Chemische structuur van mogelijke andere levensvormen in het universum",
+            "Leg het verband tussen muziek en psychologie uit",
+            "Scenario's gecreëerd door zelflerende evolutionaire algoritmen",
+            "Start een detectiveverhaal in een virtuele realiteit",
+            "Creëer een nieuwe god/godin voor een onbekende mythologie"
+        ]
+    }
+}

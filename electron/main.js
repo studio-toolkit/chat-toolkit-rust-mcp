@@ -1,7 +1,11 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, safeStorage, ipcMain } = require("electron");
 const path = require("path");
+const fs = require("fs");
 
 let mainWindow;
+
+// Encrypted API key storage path
+const keyFilePath = path.join(app.getPath("userData"), "api_key.enc");
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -32,6 +36,54 @@ function createWindow() {
     mainWindow = null;
   });
 }
+
+// IPC: Save API key encrypted with OS-level encryption
+ipcMain.handle("save-api-key", async (_event, key) => {
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(key);
+      fs.writeFileSync(keyFilePath, encrypted);
+      return { success: true };
+    } else {
+      // Fallback: save as base64 (not truly encrypted, but better than plaintext)
+      fs.writeFileSync(keyFilePath, Buffer.from(key).toString("base64"));
+      return { success: true, warning: "OS encryption not available, stored with basic encoding" };
+    }
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// IPC: Load API key
+ipcMain.handle("load-api-key", async () => {
+  try {
+    if (!fs.existsSync(keyFilePath)) return { key: null };
+
+    const data = fs.readFileSync(keyFilePath);
+    if (safeStorage.isEncryptionAvailable()) {
+      const decrypted = safeStorage.decryptString(data);
+      return { key: decrypted };
+    } else {
+      // Fallback: decode base64
+      const decoded = Buffer.from(data.toString(), "base64").toString("utf-8");
+      return { key: decoded };
+    }
+  } catch (err) {
+    return { key: null, error: err.message };
+  }
+});
+
+// IPC: Delete stored API key
+ipcMain.handle("delete-api-key", async () => {
+  try {
+    if (fs.existsSync(keyFilePath)) {
+      fs.unlinkSync(keyFilePath);
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
 
 app.whenReady().then(createWindow);
 

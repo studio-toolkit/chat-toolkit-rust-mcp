@@ -1,0 +1,178 @@
+{
+    "meta": {
+        "name": "Polski",
+        "code": "pl"
+    },
+    "settings": {
+        "title": "Ustawienia",
+        "subtitle": "Połączenie i konfiguracja modelu.",
+        "apiKeyLabel": "Klucz API Google Gemini",
+        "toggleKeyTitle": "Pokaż/Ukryj",
+        "getApiKey": "Pobierz przycisk API →",
+        "systemInstructions": "Instrukcje systemowe",
+        "systemInstructionsPlaceholder": "np. Jesteś starszym architektem oprogramowania...",
+        "temperatureLabel": "Temperatura (Kreatywność)",
+        "temperatureDesc": "Niska=Precyzyjnie/Analitycznie, Wysoka=Kreatywnie",
+        "languageLabel": "Język",
+        "saveAndClose": "Zapisz i Zamknij",
+        "saving": "Zapisywanie...",
+        "apiKeyRejected": "Klucz API został odrzucony.",
+        "cannotConnect": "Nie można połączyć z serwerem.",
+        "enterApiKey": "Proszę wprowadzić klucz API, aby kontynuować.",
+        "enterNewKey": "Wpisz nowy klucz lub pozostaw puste..."
+    },
+    "titlebar": {
+        "settingsTitle": "Ustawienia",
+        "closeSuggestedMenu": "Zamknij"
+    },
+    "status": {
+        "connected": "Połączono z Gemini",
+        "apiKeyNotSet": "Brak klucza API",
+        "serverNotRunning": "Serwer nie działa",
+        "connecting": "Łączenie..."
+    },
+    "models": {
+        "moreModels": "Więcej modeli"
+    },
+    "chat": {
+        "inputPlaceholder": "Wyślij wiadomość..."
+    },
+    "landing": {
+        "motivationalPhrases": [
+            "Zbudujmy coś niesamowitego.",
+            "Gotowy na stworzenie odrobiny magii?",
+            "Czas na napisanie fantastycznego kodu.",
+            "Twój kolejny wielki pomysł zaczyna się tutaj.",
+            "Uczyńmy ten dzień produktywnym.",
+            "Koduj, twórz, zwyciężaj.",
+            "Co dzisiaj budujemy?",
+            "Uwolnij swoją kreatywność.",
+            "Skup się na rozwiązaniu, nie na problemie.",
+            "Precyzja w każdej linijce kodu.",
+            "Zaprojektuj przyszłość, już dziś.",
+            "Zobowiąż się do doskonałości.",
+            "Opanuj złożoność za pomocą eleganckiego designu.",
+            "Twój kod kształtuje cyfrowy świat.",
+            "Bądź zdyscyplinowany. Bądź skupiony.",
+            "Zmień logikę w magię.",
+            "Przesuwaj swoje granice.",
+            "Każdy błąd to krok ku perfekcji.",
+            "Prostota jest szczytem wyrafinowania.",
+            "Pisz kod, który ma znaczenie.",
+            "Rzuć wyzwanie niemożliwemu.",
+            "Wznieś inżynierię na wyższy poziom.",
+            "Rozwiązuj trudne problemy."
+        ],
+        "placeholder": "Jak mogę Ci dzisiaj pomóc?",
+        "suggestWrite": "Pisz",
+        "suggestLearn": "Ucz się",
+        "suggestCode": "Kod",
+        "suggestLife": "Życie",
+        "suggestGemini": "Wybór Gemini",
+        "hello": "Cześć {name}"
+    },
+    "tooltips": {
+        "attach": "Załącz obraz",
+        "search": "Wyszukiwarka",
+        "send": "Wyślij",
+        "code": "Uruchom kod Pythona"
+    },
+    "modelsConfig": {
+        "extendedThinking": "Rozszerzone myślenie",
+        "thinkComplex": "Myśl dłużej przy złożonych zadaniach",
+        "thinkLow": "Niskie",
+        "thinkMed": "Średnie",
+        "thinkHigh": "Wysokie",
+        "descPro": "Najbardziej zaawansowany model flagowy",
+        "descFlash": "Szybki i wydajny model"
+    },
+    "errors": {
+        "aiExplainPrompt": "Otrzymałem błąd API. Proszę, wyjaśnij ten błąd krótko użytkownikowi, co go spowodowało i jak można go rozwiązać. Odpowiedz po polsku.\\n\\nKod błędu: {errorCode}\\nKomunikat: {toastMsg}\\nPełny błąd: {rawError}"
+    },
+    "prompts": {
+        "write": [
+            "Daj mi kreatywne pomysły na tytuły postów",
+            "Napisz krótką mowę motywacyjną",
+            "Zmień zabawny poranny incydent w opowiadanie",
+            "Przygotuj oficjalny e-mail z zaproszeniem na spotkanie",
+            "Stwórz opis postaci do powieści sci-fi",
+            "Napisz uprzejmy e-mail z odmową do klienta",
+            "Utwórz zarys interesującego posta na LinkedIn",
+            "Napisz tekst informacyjny o jodze dla początkujących",
+            "Napisz mini-historię o podróżach w czasie",
+            "Opracuj ekscytującą informację prasową",
+            "Napisz esej skłaniający do refleksji",
+            "Napisz manifest produktywności dla freelancerów",
+            "Stwórz 5 różnych postów 'Tego dnia w historii'",
+            "Napisz podnoszący na duchu wiersz dla przyjaciela"
+        ],
+        "learn": [
+            "Wyjaśnij mechanikę kwantową jak pięciolatkowi",
+            "Podsumuj wpływ renesansu na sztukę",
+            "Jak modele AI aktualizują swoje wagi?",
+            "Jakie były główne przyczyny rewolucji francuskiej?",
+            "Co oznacza zakrzywienie czasoprzestrzeni?",
+            "Wyjaśnij prosto, jak działa technologia blockchain",
+            "Jakie jest znaczenie CRISPR w inżynierii genetycznej?",
+            "Opisz upadek Cesarstwa Rzymskiego",
+            "Rozwiń pojęcie 'horyzontu zdarzeń' czarnych dziur",
+            "Porównaj teorie o wyginięciu dinozaurów",
+            "Czym jest 'dysonans poznawczy' w psychologii?",
+            "Opowiedz o narodzinach nowoczesnej architektury",
+            "Skąd wzięły się nazwy planet Układu Słonecznego?",
+            "Wyjaśnij wpływ ocieplenia na prądy oceaniczne",
+            "Pojęcie neuroplastyczności w mózgu"
+        ],
+        "code": [
+            "Napisz prosty komponent licznika w React",
+            "Jak używać list comprehension w Pythonie?",
+            "Kluczowe różnice między REST API a GraphQL?",
+            "Wyjaśnij koncepcję 'Borrow Checking' w Rust",
+            "Pokaż async/await w JS na przykładzie",
+            "Główne różnice między Dockerem a Kubernetes?",
+            "Wyjaśnij rodzaje SQL JOIN (INNER, LEFT, RIGHT, FULL)",
+            "Jak skonfigurować CI/CD dla projektu webowego?",
+            "Jakie są zalety TS nad JS?",
+            "Różnica między git rebase a merge?",
+            "Jak działają wskaźniki w C++ i zarząd. pamięcią",
+            "Porównaj cykl życia Vue.js i React",
+            "Plusy i minusy architektury mikroserwisów?",
+            "Podaj 5 wskazówek na szybsze debugowanie",
+            "O czym pamiętać tworząc algorytm szyfrowania?"
+        ],
+        "life": [
+            "Wskazówki skuteczniejszej nauki",
+            "5 prostych metod na codzienny stres",
+            "Jak zbudować zdrową rutynę snu?",
+            "Co zrobić, by poprawić zarządzanie czasem?",
+            "Propozycje na zbudowanie nawyku czytania",
+            "Poranna rutyna dla pełnego energii startu",
+            "Drobne kroki do zdrowych nawyków",
+            "Jak poprawić umiejętności komunikacyjne?",
+            "15-minutowy trening do wykonania w domu",
+            "Podstawowe kroki dla początkujących w medytacji",
+            "Wskazówki na cyfrowy detoks",
+            "Strategie nauki nowego języka",
+            "Praktyczne metody osobistego budżetowania",
+            "Mentalne ćwiczenia budujące pewność siebie",
+            "Hobby wyzwalające kreatywność?"
+        ],
+        "gemini": [
+            "Fascynujący paradoks filozoficzny",
+            "Wyobraź sobie dzień w pierwszej kolonii",
+            "A co, gdyby zwierzęta mówiły?",
+            "Inspirująca nieznana historyczna anegdota",
+            "Prognozy dotyczące transportu przyszłości",
+            "Wygeneruj teorię sci-fi poszerzającą horyzonty",
+            "Zagadka matematyki w naturze (Złoty podział)",
+            "Moralne zasady na okoliczność podróży w czasie",
+            "Naukowe wyjaśnienie snów i świadomego śnienia",
+            "5 wielkich przypadkowych wynalazków",
+            "Struktura chemiczna potencjalnego obcego życia",
+            "Związek muzyki z psychologią człowieka",
+            "Scenariusze dla samo-uczących algorytmów",
+            "Rozpocznij historię detektywistyczną VR",
+            "Stwórz nowe bóstwo w nieznanej mitologii"
+        ]
+    }
+}

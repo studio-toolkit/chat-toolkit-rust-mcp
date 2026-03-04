@@ -1,0 +1,178 @@
+{
+    "meta": {
+        "name": "Español",
+        "code": "es"
+    },
+    "settings": {
+        "title": "Ajustes",
+        "subtitle": "Conexión y configuración del modelo.",
+        "apiKeyLabel": "Clave API de Google Gemini",
+        "toggleKeyTitle": "Mostrar/Ocultar",
+        "getApiKey": "Obtener Clave API →",
+        "systemInstructions": "Instrucciones del Sistema",
+        "systemInstructionsPlaceholder": "ej. Eres un arquitecto de software senior...",
+        "temperatureLabel": "Temperatura (Creatividad)",
+        "temperatureDesc": "Baja=Precisa/Analítica, Alta=Creativa",
+        "languageLabel": "Idioma",
+        "saveAndClose": "Guardar y Cerrar",
+        "saving": "Guardando...",
+        "apiKeyRejected": "La clave API fue rechazada.",
+        "cannotConnect": "No se puede conectar al servidor.",
+        "enterApiKey": "Por favor ingresa una clave API para continuar.",
+        "enterNewKey": "Ingresa una nueva clave o déjalo vacío..."
+    },
+    "titlebar": {
+        "settingsTitle": "Ajustes",
+        "closeSuggestedMenu": "Cerrar"
+    },
+    "status": {
+        "connected": "Conectado a Gemini",
+        "apiKeyNotSet": "Clave API no configurada",
+        "serverNotRunning": "El servidor no se está ejecutando",
+        "connecting": "Conectando..."
+    },
+    "models": {
+        "moreModels": "Más modelos"
+    },
+    "chat": {
+        "inputPlaceholder": "Envía un mensaje..."
+    },
+    "landing": {
+        "motivationalPhrases": [
+            "Construyamos algo asombroso.",
+            "¿Listo para crear un poco de magia?",
+            "Es hora de escribir código brillante.",
+            "Tu próxima gran idea comienza aquí.",
+            "Hagamos que hoy sea productivo.",
+            "Codifica, crea, conquista.",
+            "¿Qué estamos construyendo hoy?",
+            "Libera tu creatividad.",
+            "Concéntrate en la solución, no en el problema.",
+            "Precisión en cada línea de código.",
+            "Arquitecta el futuro, hoy.",
+            "Comprométete con la excelencia.",
+            "Domina la complejidad con un diseño elegante.",
+            "Tu código da forma al mundo digital.",
+            "Mantente disciplinado. Mantente enfocado.",
+            "Transforma la lógica en magia.",
+            "Empuja tus límites.",
+            "Cada error es un paso hacia la perfección.",
+            "La simplicidad es la máxima sofisticación.",
+            "Escribe código que importe.",
+            "Desafía lo imposible.",
+            "Eleva tu ingeniería.",
+            "Resuelve problemas difíciles."
+        ],
+        "placeholder": "¿Cómo puedo ayudarte hoy?",
+        "suggestWrite": "Escribir",
+        "suggestLearn": "Aprender",
+        "suggestCode": "Código",
+        "suggestLife": "Estilo de vida",
+        "suggestGemini": "Elección de Gemini",
+        "hello": "Hola {name}"
+    },
+    "tooltips": {
+        "attach": "Adjuntar Imagen",
+        "search": "Búsqueda web",
+        "send": "Enviar",
+        "code": "Ejecutar Código Python"
+    },
+    "modelsConfig": {
+        "extendedThinking": "Pensamiento extendido",
+        "thinkComplex": "Piensa más largo para tareas complejas",
+        "thinkLow": "Bajo",
+        "thinkMed": "Medio",
+        "thinkHigh": "Alto",
+        "descPro": "El modelo insignia más capaz",
+        "descFlash": "Modelo rápido y eficiente"
+    },
+    "errors": {
+        "aiExplainPrompt": "Recibí un error de API. Explica brevemente este error al usuario, qué lo causó y cómo puede resolverse. Responde en español.\\n\\nCódigo de error: {errorCode}\\nMensaje de error: {toastMsg}\\nError completo: {rawError}"
+    },
+    "prompts": {
+        "write": [
+            "Dame ideas creativas de títulos para mi blog",
+            "Escribe un breve discurso motivacional",
+            "Convierte un divertido incidente matutino en una historia",
+            "Redacta un correo electrónico formal de invitación a una reunión",
+            "Crea una descripción de personaje para una novela de ciencia ficción",
+            "Escribe un correo electrónico de rechazo educado a un cliente",
+            "Crea un borrador atractivo para una publicación en LinkedIn",
+            "Escribe un texto informativo sobre yoga para principiantes",
+            "Escribe una mini historia sobre viajes en el tiempo",
+            "Redacta un emocionante comunicado de prensa",
+            "Escribe un ensayo que invite a la reflexión sobre la cultura del café",
+            "Escribe un manifiesto de productividad para trabajadores independientes",
+            "Crea 5 publicaciones diferentes en formato 'Un día como hoy en la historia'",
+            "Escribe un poema edificante para un amigo"
+        ],
+        "learn": [
+            "Explica la física cuántica como si tuviera 5 años",
+            "Resume el impacto de la era del Renacimiento en el arte",
+            "¿Cómo actualizan sus pesos los modelos de IA?",
+            "¿Cuáles fueron las principales causas de la Revolución Francesa?",
+            "¿Qué significa la curvatura del espacio-tiempo?",
+            "Explica de forma sencilla cómo funciona la tecnología blockchain",
+            "¿Cuál es la importancia de CRISPR en la ingeniería genética?",
+            "Describe la caída del Imperio Romano paso a paso",
+            "Explica el concepto de 'Horizonte de sucesos' alrededor de los agujeros negros",
+            "Compara las teorías sobre la extinción de los dinosaurios",
+            "¿Qué es la 'Disonancia cognitiva' en psicología?",
+            "Háblame sobre el nacimiento de la arquitectura moderna",
+            "¿De dónde vienen los nombres de los planetas de nuestro sistema solar?",
+            "Explica el efecto del calentamiento global en las corrientes oceánicas",
+            "¿Qué significa el concepto de neuroplasticidad en el cerebro humano?"
+        ],
+        "code": [
+            "Escribe un componente de contador simple en React",
+            "¿Cómo usar list comprehension en Python?",
+            "¿Cuáles son las diferencias clave entre REST API y GraphQL?",
+            "Explica el concepto de 'Borrow Checking' en Rust",
+            "Muestra async/await en JavaScript con un ejemplo",
+            "¿Cuáles son las diferencias clave entre Docker y Kubernetes?",
+            "Explica los tipos de SQL JOIN (INNER, LEFT, RIGHT, FULL)",
+            "¿Cómo configurar una canalización CI/CD para un proyecto web?",
+            "¿Cuáles son las ventajas de TypeScript sobre JavaScript?",
+            "¿Cuál es la diferencia entre git rebase y merge?",
+            "Cómo funcionan los punteros en C++ y la gestión de memoria",
+            "Compara los métodos del ciclo de vida de Vue.js y React",
+            "¿Cuáles son los pros y los contras de la arquitectura de microservicios?",
+            "Dame 5 consejos para acelerar mi proceso de depuración",
+            "¿Qué tener en cuenta al diseñar un algoritmo de cifrado seguro?"
+        ],
+        "life": [
+            "Da consejos para estudiar de manera más efectiva",
+            "Dime 5 métodos simples para lidiar con el estrés diario",
+            "¿Cómo puedo crear una rutina de sueño saludable?",
+            "¿Qué debo hacer para mejorar mi gestión del tiempo?",
+            "Da sugerencias para desarrollar el hábito de la lectura",
+            "Crea una rutina matutina para empezar el día con energía",
+            "Sugiere pequeños pasos para desarrollar hábitos alimenticios saludables",
+            "¿Cómo puedo mejorar mis habilidades de comunicación?",
+            "Crea un programa de ejercicios de 15 minutos para hacer en casa",
+            "¿Cuáles son los pasos básicos para alguien que empieza a meditar?",
+            "Da consejos de desintoxicación digital para reducir el tiempo frente a la pantalla",
+            "Estrategias prácticas para aprender un nuevo idioma",
+            "Comparte métodos prácticos para el presupuesto personal",
+            "Ejercicios mentales para desarrollar la confianza en uno mismo",
+            "¿Qué pasatiempos desencadenan la creatividad?"
+        ],
+        "gemini": [
+            "Háblame de un fascinante paradoja filosófica",
+            "Imagina un día en la primera colonia en Marte",
+            "¿Cómo sería el mundo si los animales pudieran hablar?",
+            "Comparte una anécdota histórica inspiradora y poco conocida",
+            "Haz predicciones sobre futuras tecnologías de transporte",
+            "Genera una teoría de ciencia ficción que amplíe los límites de la mente humana",
+            "El misterio de las matemáticas en la naturaleza (Proporción Áurea)",
+            "Las primeras reglas morales si se inventara el viaje en el tiempo",
+            "Explicación científica de los sueños y los sueños lúcidos",
+            "5 grandes inventos accidentales que cambiaron la historia",
+            "Estructura química de posibles formas de vida en el universo",
+            "Explica la profunda conexión entre la música y la psicología humana",
+            "Escenarios creados por algoritmos evolutivos de autoaprendizaje",
+            "Comienza una historia de detectives en un mundo de realidad virtual",
+            "Crea una nueva deidad inspirada en una mitología desconocida"
+        ]
+    }
+}

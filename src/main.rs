@@ -59,6 +59,7 @@ async fn main() -> Result<()> {
             .route("/chat/events/{id}", get(chat_events_handler))
             .route("/chat/api-key", post(api_key_handler))
             .route("/chat/status", get(status_handler))
+            .route("/chat/models", get(models_handler))
             .with_state(server_state_clone);
             
         tracing::info!("HTTP server listening on port {STUDIO_PLUGIN_PORT}");

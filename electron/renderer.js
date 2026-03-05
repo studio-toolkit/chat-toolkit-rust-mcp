@@ -7,6 +7,13 @@ const path = require("path");
 const { exec } = require("child_process");
 const fs = require("fs");
 
+window.addEventListener('error', (e) => {
+    try { fs.appendFileSync('/tmp/renderer.log', (e.error ? e.error.stack : e.message) + '\n'); } catch (err) { }
+});
+window.addEventListener('unhandledRejection', (e) => {
+    try { fs.appendFileSync('/tmp/renderer.log', (e.reason ? (e.reason.stack || e.reason) : 'Promise rejection') + '\n'); } catch (err) { }
+});
+
 const API_BASE = "http://127.0.0.1:44755";
 
 // ─── i18n System ───────────────────────────────────────────────
@@ -356,7 +363,131 @@ function hideModal() {
     modalOverlay.classList.add("hidden");
 }
 
-function addMessage(role, content, extraNodes = [], images = []) {
+// ─── Chat Tree State ───────────────────────────────────────────────
+const chatTree = {};
+let activeNodeId = null;
+
+function createNode(role, content, parentId = null, extraNodesHTML = "", images = [], info = null) {
+    const id = "node_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    const node = {
+        id,
+        parentId,
+        role,
+        content,
+        extraNodesHTML,
+        images,
+        children: [],
+        timestamp: new Date().toISOString(),
+        duration: 0,
+        info
+    };
+    chatTree[id] = node;
+    if (parentId && chatTree[parentId]) {
+        chatTree[parentId].children.push(id);
+    }
+    return node;
+}
+
+function getBranchPath(leafId) {
+    const path = [];
+    let curr = leafId;
+    while (curr && chatTree[curr]) {
+        path.unshift(chatTree[curr]);
+        curr = chatTree[curr].parentId;
+    }
+    return path;
+}
+
+function getDeepestLeaf(nodeId) {
+    let curr = chatTree[nodeId];
+    while (curr && curr.children.length > 0) {
+        curr = chatTree[curr.children[curr.children.length - 1]];
+    }
+    return curr ? curr.id : nodeId;
+}
+
+function buildGeminiHistory(leafId) {
+    const path = getBranchPath(leafId);
+    const history = [];
+    for (const node of path) {
+        let parts = [];
+        if (node.images && node.images.length > 0) {
+            node.images.forEach(img => {
+                const partsMatch = img.match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
+                if (partsMatch && partsMatch.length === 3) {
+                    parts.push({
+                        inlineData: {
+                            mimeType: partsMatch[1],
+                            data: partsMatch[2]
+                        }
+                    });
+                }
+            });
+        }
+        if (node.content) {
+            // Check if it was an error message
+            if (node.role === "assistant" && node.content.startsWith("Error [")) continue;
+            parts.push({ text: node.content });
+        }
+        // Include tool results if stored in extraNodes
+        if (parts.length > 0) {
+            history.push({
+                role: node.role === "assistant" ? "model" : "user",
+                parts: parts
+            });
+        }
+    }
+    return history;
+}
+
+function deleteNode(nodeId) {
+    const node = chatTree[nodeId];
+    if (!node) return;
+
+    let variants;
+    if (node.parentId && chatTree[node.parentId]) {
+        const parent = chatTree[node.parentId];
+        parent.children = parent.children.filter(id => id !== nodeId);
+        variants = parent.children;
+    } else {
+        chatTree[nodeId].orphan = true;
+        variants = Object.keys(chatTree).filter(k => chatTree[k].parentId === null && !chatTree[k].orphan);
+    }
+
+    let newActiveId = node.parentId;
+    if (variants.length > 0) {
+        newActiveId = variants[variants.length - 1];
+    }
+
+    if (newActiveId) {
+        activeNodeId = getDeepestLeaf(newActiveId);
+        renderBranch(activeNodeId);
+    } else {
+        activeNodeId = null;
+        renderBranch(null);
+    }
+}
+
+function renderBranch(leafId) {
+    messagesEl.innerHTML = "";
+    if (!leafId) {
+        document.getElementById("chat-container").classList.add("chat-empty");
+        welcomeEl.style.display = "flex";
+        return;
+    }
+    const path = getBranchPath(leafId);
+    path.forEach(node => {
+        const contentEl = addMessageToDOM(node.role, node.content, [], node.images, node.id, true, node.info);
+        if (node.extraNodesHTML) {
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = node.extraNodesHTML;
+            Array.from(wrapper.children).forEach(child => contentEl.appendChild(child));
+        }
+    });
+    scrollToBottom();
+}
+
+function addMessageToDOM(role, content, extraNodes = [], images = [], nodeId = null, isReplay = false, info = null) {
     const chatContainer = document.getElementById("chat-container");
     if (chatContainer.classList.contains("chat-empty")) {
         if (document.startViewTransition) {
@@ -369,11 +500,12 @@ function addMessage(role, content, extraNodes = [], images = []) {
     }
 
     if (welcomeEl) {
-        // We keep welcome in DOM now to let CSS handle it
+        welcomeEl.style.display = "none";
     }
 
     const msgEl = document.createElement("div");
     msgEl.className = "message";
+    if (nodeId) msgEl.setAttribute("data-id", nodeId);
 
     const innerEl = document.createElement("div");
     innerEl.className = "message-inner";
@@ -412,6 +544,27 @@ function addMessage(role, content, extraNodes = [], images = []) {
     headerEl.appendChild(roleEl);
     headerEl.appendChild(timeEl);
 
+    if (info) {
+        const infoBadge = document.createElement("div");
+        infoBadge.className = "message-info-badge";
+
+        const timeIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+        const tokensIcon = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>`;
+
+        infoBadge.innerHTML = `
+            <span class="info-item" title="Tokens generated">${tokensIcon} ${info.tokens}</span>
+            <span class="info-item" title="Time taken">${timeIcon} ${info.time}s</span>
+        `;
+        headerEl.appendChild(infoBadge);
+    }
+
+    // Add sticky action bar
+    if (nodeId && chatTree[nodeId]) {
+        const node = chatTree[nodeId];
+        const actionBar = createActionBar(node, role);
+        headerEl.appendChild(actionBar);
+    }
+
     const contentEl = document.createElement("div");
     contentEl.className = "message-content";
 
@@ -431,7 +584,7 @@ function addMessage(role, content, extraNodes = [], images = []) {
     }
 
     if (extraNodes.length > 0) {
-        extraNodes.forEach(node => contentEl.appendChild(node));
+        extraNodes.forEach(child => contentEl.appendChild(child));
     }
 
     const markdownNode = document.createElement("div");
@@ -445,9 +598,205 @@ function addMessage(role, content, extraNodes = [], images = []) {
     innerEl.appendChild(contentEl);
     msgEl.appendChild(innerEl);
     messagesEl.appendChild(msgEl);
-    scrollToBottom();
+
+    if (!isReplay) {
+        scrollToBottom();
+    }
 
     return contentEl;
+}
+
+function addMessage(role, content, extraNodes = [], images = [], info = null) {
+    let extraNodesHTML = "";
+    if (extraNodes.length > 0) {
+        const wrapper = document.createElement("div");
+        extraNodes.forEach(node => wrapper.appendChild(node.cloneNode(true)));
+        extraNodesHTML = wrapper.innerHTML;
+    }
+    const node = createNode(role, content, activeNodeId, extraNodesHTML, images, info);
+    activeNodeId = node.id;
+    return addMessageToDOM(role, content, extraNodes, images, node.id, false, info);
+}
+
+function createActionBar(node, role) {
+    const container = document.createElement("div");
+    container.className = "message-actions-container";
+
+    const variants = node.parentId ? chatTree[node.parentId].children : Object.keys(chatTree).filter(k => chatTree[k].parentId === null && !chatTree[k].orphan);
+    if (variants.length > 1) {
+        const idx = variants.indexOf(node.id);
+        const pageEl = document.createElement("div");
+        pageEl.className = "action-pagination";
+
+        const prevBtn = document.createElement("button");
+        prevBtn.innerHTML = "&lt;";
+        prevBtn.disabled = idx === 0;
+        prevBtn.onclick = () => {
+            if (isProcessing) return;
+            if (idx > 0) {
+                activeNodeId = getDeepestLeaf(variants[idx - 1]);
+                renderBranch(activeNodeId);
+            }
+        };
+
+        const nextBtn = document.createElement("button");
+        nextBtn.innerHTML = "&gt;";
+        nextBtn.disabled = idx === variants.length - 1;
+        nextBtn.onclick = () => {
+            if (isProcessing) return;
+            if (idx < variants.length - 1) {
+                activeNodeId = getDeepestLeaf(variants[idx + 1]);
+                renderBranch(activeNodeId);
+            }
+        };
+
+        const label = document.createElement("span");
+        label.textContent = `${idx + 1} / ${variants.length}`;
+
+        pageEl.appendChild(prevBtn);
+        pageEl.appendChild(label);
+        pageEl.appendChild(nextBtn);
+        container.appendChild(pageEl);
+    }
+
+    const btnGroup = document.createElement("div");
+    btnGroup.className = "action-btn-group";
+
+    if (role === "user") {
+        const editBtn = document.createElement("button");
+        editBtn.className = "msg-action-btn icon-only";
+        editBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>`;
+        editBtn.title = "Edit";
+        editBtn.onclick = (e) => {
+            if (isProcessing) return;
+            const messageEl = e.target.closest('.message');
+            const contentContainer = messageEl.querySelector('.message-content');
+            if (contentContainer.querySelector('.inline-edit-container')) return;
+
+            const markdownNodes = Array.from(contentContainer.children).filter(c => !c.classList.contains('message-images'));
+            markdownNodes.forEach(n => n.style.display = 'none');
+
+            const actionBar = messageEl.querySelector('.message-actions-container');
+            if (actionBar) actionBar.style.display = 'none';
+
+            const editContainer = document.createElement('div');
+            editContainer.className = 'inline-edit-container';
+
+            const textarea = document.createElement('textarea');
+            textarea.className = 'inline-edit-textarea';
+            textarea.value = node.content;
+
+            const resizeTextarea = () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.max(56, textarea.scrollHeight) + 'px';
+            };
+            textarea.addEventListener('input', resizeTextarea);
+            setTimeout(resizeTextarea, 0);
+
+            const btnRow = document.createElement('div');
+            btnRow.className = 'inline-edit-actions';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'inline-edit-cancel';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = () => {
+                editContainer.remove();
+                markdownNodes.forEach(n => n.style.display = '');
+                if (actionBar) actionBar.style.display = '';
+            };
+
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'inline-edit-save';
+            saveBtn.textContent = 'Save & Submit';
+            saveBtn.onclick = () => {
+                const newText = textarea.value.trim();
+                if (!newText) return;
+
+                editContainer.remove();
+                markdownNodes.forEach(n => n.style.display = '');
+                if (actionBar) actionBar.style.display = '';
+
+                activeNodeId = node.parentId;
+                let overrideImages = null;
+                if (node.images && node.images.length > 0) {
+                    const match = node.images[0].match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
+                    if (match) { overrideImages = { base64: match[2], mime: match[1], fullArray: node.images }; }
+                }
+                sendMessage(newText, overrideImages);
+            };
+
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(saveBtn);
+            editContainer.appendChild(textarea);
+            editContainer.appendChild(btnRow);
+
+            contentContainer.appendChild(editContainer);
+            textarea.focus();
+            textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+        };
+
+        const rerunBtn = document.createElement("button");
+        rerunBtn.className = "msg-action-btn icon-only";
+        rerunBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>`;
+        rerunBtn.title = "Rerun";
+        rerunBtn.onclick = (e) => {
+            if (isProcessing) return;
+            activeNodeId = node.parentId;
+            let overrideImages = null;
+            if (node.images && node.images.length > 0) {
+                const match = node.images[0].match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
+                if (match) { overrideImages = { base64: match[2], mime: match[1], fullArray: node.images }; }
+            }
+            sendMessage(node.content, overrideImages);
+        };
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "msg-action-btn icon-only";
+        copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+        copyBtn.title = "Copy";
+        copyBtn.onclick = (e) => {
+            navigator.clipboard.writeText(node.content);
+            showToast("Copied to clipboard", "info");
+        };
+
+        btnGroup.appendChild(editBtn);
+        btnGroup.appendChild(rerunBtn);
+        btnGroup.appendChild(copyBtn);
+
+    } else {
+        const rerunBtn = document.createElement("button");
+        rerunBtn.className = "msg-action-btn icon-only";
+        rerunBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>`;
+        rerunBtn.title = "Regenerate";
+        rerunBtn.onclick = (e) => {
+            if (isProcessing) return;
+            const userParent = chatTree[node.parentId];
+            if (userParent) {
+                activeNodeId = userParent.id;
+                let overrideImages = null;
+                if (userParent.images && userParent.images.length > 0) {
+                    const match = userParent.images[0].match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
+                    if (match) { overrideImages = { base64: match[2], mime: match[1], fullArray: userParent.images }; }
+                }
+                sendMessage(userParent.content, overrideImages, true);
+            }
+        };
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "msg-action-btn danger icon-only";
+        deleteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+        deleteBtn.title = "Delete";
+        deleteBtn.onclick = (e) => {
+            if (isProcessing) return;
+            deleteNode(node.id);
+        };
+
+        btnGroup.appendChild(rerunBtn);
+        btnGroup.appendChild(deleteBtn);
+    }
+
+    container.appendChild(btnGroup);
+    return container;
 }
 
 // Fullscreen image lightbox
@@ -1079,20 +1428,31 @@ async function explainErrorWithAI(errorCode, toastMsg, rawError) {
     }
 }
 
-async function sendMessage() {
-    const text = inputEl.value.trim();
+async function sendMessage(overrideText = null, overrideImages = null, isAiRerun = false) {
+    const text = overrideText !== null ? overrideText : inputEl.value.trim();
     if (!text || isProcessing) return;
 
     isProcessing = true;
     sendBtn.disabled = true;
-    inputEl.value = "";
-    autoResize();
+    if (overrideText === null) {
+        inputEl.value = "";
+        autoResize();
+    }
 
     // Capture image for display before clearing
     const messageImages = [];
     let sendImageBase64 = null;
     let sendImageMime = null;
-    if (attachedImageBase64 && attachedImageMimeType) {
+
+    if (overrideImages) {
+        if (overrideImages.fullArray) {
+            messageImages.push(...overrideImages.fullArray);
+        } else {
+            messageImages.push(`data:${overrideImages.mime};base64,${overrideImages.base64}`);
+        }
+        sendImageBase64 = overrideImages.base64;
+        sendImageMime = overrideImages.mime;
+    } else if (attachedImageBase64 && attachedImageMimeType) {
         messageImages.push(`data:${attachedImageMimeType};base64,${attachedImageBase64}`);
         sendImageBase64 = attachedImageBase64;
         sendImageMime = attachedImageMimeType;
@@ -1105,9 +1465,32 @@ async function sendMessage() {
         imageUpload.value = "";
     }
 
-    addMessage("user", text, [], messageImages);
+    let historyNodeId = activeNodeId;
+    if (isAiRerun && activeNodeId && chatTree[activeNodeId]) {
+        historyNodeId = chatTree[activeNodeId].parentId;
+    }
+
+    const historyPayload = buildGeminiHistory(historyNodeId);
+
+    // Sync visual DOM if appending to a historic branching point
+    const displayedMessages = document.querySelectorAll('.message');
+    const lastMessage = displayedMessages.length > 0 ? displayedMessages[displayedMessages.length - 1] : null;
+    const isAtBottom = lastMessage && lastMessage.getAttribute('data-id') === activeNodeId;
+
+    if (!isAtBottom && activeNodeId !== null) {
+        renderBranch(activeNodeId);
+    } else if (activeNodeId === null && displayedMessages.length > 0) {
+        renderBranch(null);
+    }
+
+    if (!isAiRerun) {
+        addMessage("user", text, [], messageImages);
+    }
 
     const assistantContent = addTypingIndicator();
+
+    // Start tracking time for the assistant node
+    const startTimeStamp = Date.now();
 
     // Build the expanded payload
     const payload = {
@@ -1117,6 +1500,7 @@ async function sendMessage() {
         temperature: parseFloat(tempSlider.value),
         enable_google_search: useSearch,
         enable_code_execution: useCode,
+        history: historyPayload
     };
 
     const sysPrompt = systemPromptInput.value.trim();
@@ -1128,6 +1512,8 @@ async function sendMessage() {
         payload.image_base64 = sendImageBase64;
         payload.image_mime_type = sendImageMime;
     }
+
+    let infoData = null;
 
     try {
         const res = await fetch(`${API_BASE}/chat/send`, {
@@ -1154,6 +1540,7 @@ async function sendMessage() {
 
         let toolCalls = {};
         let finalText = "";
+        let totalTokens = 0;
 
         let switchedToThinking = false;
 
@@ -1200,10 +1587,18 @@ async function sendMessage() {
             }
             const payload = JSON.parse(e.data);
             finalText += payload.content;
+
+            // Rough estimate mapping if exact tokens aren't streamed
+            // Avg 4 chars per token
+            totalTokens += Math.ceil(payload.content.length / 4);
         });
 
         evtSource.addEventListener("done", () => {
             evtSource.close();
+
+            const durationMs = Date.now() - startTimeStamp;
+            const durationSec = (durationMs / 1000).toFixed(1);
+            infoData = { tokens: totalTokens, time: durationSec };
 
             // Instead of just collecting inner nodes and removing the typing message which destroys them
             const typingMsg = document.getElementById("typing-message");
@@ -1218,10 +1613,16 @@ async function sendMessage() {
 
             if (finalText) {
                 // addMessage will append extraNodes
-                addMessage("assistant", finalText, extraNodes);
+                addMessage("assistant", finalText, extraNodes, [], infoData);
+                if (activeNodeId && chatTree[activeNodeId]) {
+                    chatTree[activeNodeId].info = infoData;
+                }
             } else if (extraNodes.length > 0) {
                 // Even if no text, keep the thought chain
-                addMessage("assistant", "", extraNodes);
+                addMessage("assistant", "", extraNodes, [], infoData);
+                if (activeNodeId && chatTree[activeNodeId]) {
+                    chatTree[activeNodeId].info = infoData;
+                }
             }
 
             removeTypingIndicator();
@@ -1473,7 +1874,7 @@ ghostBtn.addEventListener("click", () => {
     console.log("Ghost button clicked - coming soon!");
 });
 
-sendBtn.addEventListener("click", sendMessage);
+sendBtn.addEventListener("click", () => sendMessage());
 
 inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {

@@ -542,6 +542,7 @@ pub struct ChatSendRequest {
     pub thinking_level: Option<String>,
     pub enable_google_search: Option<bool>,
     pub enable_code_execution: Option<bool>,
+    pub history: Option<Vec<GeminiContent>>,
 }
 
 #[derive(Serialize)]
@@ -560,6 +561,10 @@ pub async fn chat_send_handler(
         let mut app_state = state.lock().await;
         app_state.chat_streams.insert(chat_id.clone(), sse_tx.clone());
         app_state.chat_receivers.insert(chat_id.clone(), sse_rx);
+
+        if let Some(history) = &payload.history {
+            app_state.conversation_history = history.clone();
+        }
 
         let mut parts = Vec::new();
 
@@ -839,7 +844,7 @@ pub async fn chat_events_handler(
     let chat_id_clone = chat_id.clone();
     
     // We get the receiver from the state, if it exists
-    let mut payload_rx = {
+    let payload_rx = {
         let mut app_state = state.lock().await;
         app_state.chat_receivers.remove(&chat_id)
     };

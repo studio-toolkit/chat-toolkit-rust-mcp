@@ -1296,6 +1296,11 @@ input:checked+.slider:before {
   }
 }
 
+.message:hover {
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+}
+
 .message-inner {
   max-width: 760px;
   width: 100%;
@@ -1303,6 +1308,7 @@ input:checked+.slider:before {
   padding: 0 16px;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .message-inner.user {
@@ -1319,6 +1325,195 @@ input:checked+.slider:before {
   gap: 8px;
   margin-bottom: 8px;
   padding: 0;
+  width: 100%;
+}
+
+.message-inner.user .message-header {
+  flex-direction: row-reverse;
+}
+
+.message-info-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+  margin-left: 8px;
+}
+
+.message-info-badge .info-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.message-actions-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  background: var(--bg-tertiary);
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-primary);
+  box-shadow: var(--shadow-sm);
+
+  /* Make it absolute strictly to top right of message wrapper */
+  position: absolute;
+  top: 0px;
+  right: 32px;
+  z-index: 10;
+  width: max-content;
+}
+
+/* User actions sit on the left since the message is right-aligned */
+.message-inner.user .message-actions-container {
+  left: 16px;
+  right: auto;
+}
+
+.message:hover .message-actions-container {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.action-pagination {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.action-pagination button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.action-pagination button:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.action-pagination button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.action-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.msg-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.msg-action-btn.flat-btn {
+  width: auto;
+  height: 26px;
+  padding: 0 8px;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.msg-action-btn.icon-only {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+}
+
+.msg-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.inline-edit-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.inline-edit-textarea {
+  width: 100%;
+  min-height: 56px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.inline-edit-textarea:focus {
+  border-color: var(--accent);
+}
+
+.inline-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.inline-edit-cancel,
+.inline-edit-save {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.inline-edit-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.inline-edit-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.inline-edit-save {
+  background: var(--accent);
+  color: #fff;
+}
+
+.inline-edit-save:hover {
+  filter: brightness(1.1);
 }
 
 .message-inner.user .message-header {

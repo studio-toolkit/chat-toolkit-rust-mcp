@@ -4,15 +4,26 @@ const fs = require("fs");
 
 let mainWindow;
 
+app.setName("GeminiStudio");
+if (process.platform === 'darwin') {
+  app.dock.setIcon(path.join(__dirname, 'icons', 'AppLogo.png'));
+}
+
 // Encrypted API key storage path
 const keyFilePath = path.join(app.getPath("userData"), "api_key.enc");
 
 function createWindow() {
+  const iconPath = process.platform === 'win32'
+    ? path.join(__dirname, 'icons', 'AppLogo.ico')
+    : path.join(__dirname, 'icons', 'AppLogo.png');
+
   mainWindow = new BrowserWindow({
     width: 1050,
     height: 750,
     minWidth: 600,
     minHeight: 500,
+    title: "GeminiStudio",
+    icon: iconPath,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 16, y: 16 },
     backgroundColor: "#00000000",

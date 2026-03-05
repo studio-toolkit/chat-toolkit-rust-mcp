@@ -1,6 +1,7 @@
 {
-  "name": "roblox-studio-gemini-agent",
-  "version": "1.0.0",
+  "name": "gemini-studio-app",
+  "productName": "GeminiStudio",
+  "version": "1.0.1",
   "description": "Gemini-powered chat interface for Roblox Studio",
   "main": "main.js",
   "scripts": {

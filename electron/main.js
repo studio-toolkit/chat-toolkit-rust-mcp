@@ -46,6 +46,29 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+
+  // Automatically grant media permissions (microphone)
+  const session = mainWindow.webContents.session;
+  session.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media') {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
+  session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    if (permission === 'media' && details.securityOrigin === 'file:///') {
+      return true;
+    }
+    return false;
+  });
+
+  // On macOS, we also need to explicitly ask the OS for permission the first time
+  if (process.platform === 'darwin') {
+    const { systemPreferences } = require('electron');
+    systemPreferences.askForMediaAccess('microphone');
+  }
 }
 
 // IPC: Save API key encrypted with OS-level encryption

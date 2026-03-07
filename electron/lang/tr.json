@@ -1,178 +1,190 @@
 {
-    "meta": {
-        "name": "Türkçe",
-        "code": "tr"
-    },
-    "settings": {
-        "title": "Ayarlar",
-        "subtitle": "Bağlantı ve model yapılandırması.",
-        "apiKeyLabel": "Google Gemini API Key",
-        "toggleKeyTitle": "Göster/Gizle",
-        "getApiKey": "API Key Al →",
-        "systemInstructions": "Sistem Karakteri (System Instructions)",
-        "systemInstructionsPlaceholder": "Örn: Sen kıdemli bir yazılım mimarısın...",
-        "temperatureLabel": "Temperature (Yaratıcılık)",
-        "temperatureDesc": "Düşük=Net/Analitik, Yüksek=Yaratıcı",
-        "languageLabel": "Dil",
-        "saveAndClose": "Kaydet & Kapat",
-        "saving": "Kaydediliyor...",
-        "apiKeyRejected": "API Key reddedildi.",
-        "cannotConnect": "Sunucuya bağlanılamıyor.",
-        "enterApiKey": "Devam etmek için bir API key girin.",
-        "enterNewKey": "Yeni key girin veya boş bırakıp kapatın..."
-    },
-    "titlebar": {
-        "settingsTitle": "Ayarlar",
-        "closeSuggestedMenu": "Kapat"
-    },
-    "status": {
-        "connected": "Gemini'ye bağlandı",
-        "apiKeyNotSet": "API key ayarlanmamış",
-        "serverNotRunning": "Sunucu çalışmıyor",
-        "connecting": "Bağlantı kuruluyor..."
-    },
-    "models": {
-        "moreModels": "Daha fazla model"
-    },
-    "chat": {
-        "inputPlaceholder": "Mesaj gönder..."
-    },
-    "landing": {
-        "motivationalPhrases": [
-            "Hadi harika bir şeyler inşa edelim.",
-            "Biraz sihir yaratmaya hazır mısın?",
-            "Harika kodlar yazma zamanı.",
-            "Bir sonraki büyük fikrin burada başlıyor.",
-            "Bugünü verimli geçirelim.",
-            "Kodla, yarat, fethet.",
-            "Bugün ne inşa ediyoruz?",
-            "Yaratıcılığını serbest bırak.",
-            "Probleme değil, çözüme odaklan.",
-            "Her kod satırında kesinlik.",
-            "Geleceği bugün tasarla.",
-            "Mükemmelliğe adanmışlık.",
-            "Karmaşıklığı zarif tasarımla yönet.",
-            "Kodun dijital dünyayı şekillendiriyor.",
-            "Disiplinli kal. Odaklan.",
-            "Mantığı sihire dönüştür.",
-            "Sınırlarını zorla.",
-            "Her hata mükemmelliğe giden bir adımdır.",
-            "Sadelik nihai gelişmişliktir.",
-            "Önemli olan kodu yaz.",
-            "İmkansıza meydan oku.",
-            "Mühendisliğini yükselt.",
-            "Zor sorunları çöz."
-        ],
-        "placeholder": "Bugün size nasıl yardımcı olabilirim?",
-        "suggestWrite": "Yaz",
-        "suggestLearn": "Öğren",
-        "suggestCode": "Kodla",
-        "suggestLife": "Günlük",
-        "suggestGemini": "Gemini'ın seçimi",
-        "hello": "Merhaba {name}"
-    },
-    "tooltips": {
-        "attach": "Görsel Ekle",
-        "search": "Web'de Ara",
-        "send": "Gönder",
-        "code": "Python Kodu Çalıştır"
-    },
-    "modelsConfig": {
-        "extendedThinking": "Genişletilmiş düşünme",
-        "thinkComplex": "Karmaşık görevler için daha uzun düşün",
-        "thinkLow": "Düşük",
-        "thinkMed": "Orta",
-        "thinkHigh": "Yüksek",
-        "descPro": "En yetenekli amiral gemisi model",
-        "descFlash": "Hızlı ve verimli model"
-    },
-    "errors": {
-        "aiExplainPrompt": "Bir API hatası aldım. Bu hatayı kullanıcıya kısaca açıkla, neden olduğunu ve nasıl çözülebileceğini anlat. Türkçe yanıt ver.\\n\\nHata kodu: {errorCode}\\nHata mesajı: {toastMsg}\\nTam hata: {rawError}"
-    },
-    "prompts": {
-        "write": [
-            "Blog yazım için yaratıcı başlık fikirleri ver",
-            "Kısa bir motivasyon konuşması yaz",
-            "Bu sabah yaşadığım komik bir olayı hikayeleştir",
-            "Resmi bir toplantı daveti e-postası tasarla",
-            "Bir bilim kurgu romanı için karakter betimlemesi yap",
-            "Müşteriye gönderilecek nazik bir ret e-postası yaz",
-            "İlgi çekici bir LinkedIn gönderisi taslağı oluştur",
-            "Yeni başlayanlar için yoga hakkında bilgilendirici bir metin yaz",
-            "Zaman yolculuğu temalı bir mini öykü yaz",
-            "Bir teknoloji ürününün lansmanı için heyecan verici bir basın bülteni oluştur",
-            "Kahve kültürü üzerine düşündürücü bir deneme kaleme al",
-            "Freelance çalışanlar için verimlilik üzerine bir manifesto yaz",
-            "Sosyal medya için 5 farklı 'Tarihte Bugün' formatlı bilgi metni hazırla",
-            "Zorlu bir hafta geçiren bir arkadaşıma moral veren bir şiir yaz"
-        ],
-        "learn": [
-            "Kuantum fiziğini 5 yaşındaki birine anlatır gibi açıkla",
-            "Rönesans döneminin sanata etkilerini özetle",
-            "Yapay zeka modelleri ağırlıklarını nasıl günceller?",
-            "Fransız devriminin ana nedenleri nelerdi?",
-            "Uzay-zaman eğriliği ne anlama geliyor?",
-            "Blockchain teknolojisinin çalışma mantığını basitçe açıkla",
-            "Genetik mühendisliğinde CRISPR yönteminin önemi nedir?",
-            "Roma İmparatorluğu'nun çöküş sürecini adım adım anlat",
-            "Kara deliklerin etrafındaki 'Olay Ufku' kavramını detaylandır",
-            "Dinozorların yok oluş teorilerini karşılaştırmalı olarak açıkla",
-            "Psikolojide 'Bilişsel Çelişki' nedir ve günlük hayattaki örnekleri nelerdir?",
-            "Modern mimarinin doğuşu ve temel prensipleri hakkında bilgi ver",
-            "Güneş sistemindeki gezegenlerin isimleri nereden gelmektedir?",
-            "Küresel ısınmanın okyanus akıntılarına etkisini anlat",
-            "İnsan beynindeki nöroplastisite kavramı ne demektir?"
-        ],
-        "code": [
-            "React ile basit bir sayaç componenti yaz",
-            "Python'da list comprehension nasıl kullanılır?",
-            "REST API ile GraphQL arasındaki temel farklar nelerdir?",
-            "Rust dilinde 'Borrow Checking' konseptini açıkla",
-            "JavaScript'te async/await yapısını örnekle",
-            "Docker ve Kubernetes arasındaki temel farklar nelerdir?",
-            "SQL'de JOIN türlerini (INNER, LEFT, RIGHT, FULL) örneklerle açıkla",
-            "Bir web projesinde CI/CD pipeline nasıl kurulur?",
-            "TypeScript kullanmanın JavaScript'e göre avantajları nelerdir?",
-            "Git'te 'rebase' ve 'merge' farkı nedir? Hangisi ne zaman kullanılmalı?",
-            "C++ dilinde pointer'ların çalışma mantığı ve bellek yönetimi",
-            "Vue.js ile React'in lifecycle metotlarını karşılaştır",
-            "Microservices mimarisinin avantajları ve dezavantajları nelerdir?",
-            "Hata ayıklama (debugging) sürecimi hızlandıracak 5 ipucu ver",
-            "Güvenli bir şifreleme algoritması tasarlarken nelere dikkat edilmeli?"
-        ],
-        "life": [
-            "Daha verimli ders çalışmak için taktikler ver",
-            "Günlük stresle başa çıkmak için 5 basit yöntem söyle",
-            "Sağlıklı bir uyku düzeni nasıl oluşturabilirim?",
-            "Zaman yönetimimi geliştirmek için ne yapmalıyım?",
-            "Kitap okuma alışkanlığı kazanmak için öneriler ver",
-            "Güne enerjik başlamak için bir sabah rutini oluştur",
-            "Sağlıklı beslenme alışkanlığı edinmek için küçük adımlar öner",
-            "Etkili iletişim becerilerimi nasıl geliştirebilirim?",
-            "Evde kolayca yapılabilecek 15 dakikalık bir egzersiz programı hazırla",
-            "Meditasyon yapmaya yeni başlayan biri için temel adımlar nelerdir?",
-            "Ekran süresini azaltmak için dijital detoks tavsiyeleri ver",
-            "Yeni bir dil öğrenirken kullanılabilecek uygulamalı stratejiler",
-            "Kişisel bütçe ve harcama takibi için pratik yöntemler paylaş",
-            "Özgüven geliştirmek için yapılabilecek zihinsel egzersizler",
-            "Yaratıcılığı tetikleyen hobiler nelerdir?"
-        ],
-        "gemini": [
-            "Bana daha önce hiç duymadığım ilginç bir felsefi paradoks anlat",
-            "Mars'ta kurulacak ilk koloninin bir gününü hayal et",
-            "Eğer hayvanlar konuşabilseydi dünya nasıl bir yer olurdu?",
-            "Bana ilham verecek, çok bilinmeyen tarihi bir anekdot paylaş",
-            "Gelecekteki ulaşım teknolojileri hakkında tahminlerde bulun",
-            "İnsan zihninin sınırlarını zorlayan bir bilim kurgu teorisi üret",
-            "Doğada bulunan matematiğin (Altın Oran, Fibonacci) gizemi",
-            "Eğer zaman yolculuğu icat edilseydi yazılacak ilk ahlak kuralları",
-            "Rüyaların bilimsel açıklaması ve lucid rüya (bilinçli rüya) deneyimleri",
-            "Tarihin akışını değiştiren tesadüfi 5 büyük icat",
-            "Evrendeki olası farklı yaşam formlarının kimyasal yapısı",
-            "Müzik ve insan psikolojisi arasındaki derin bağlantıyı açıkla",
-            "Kendi kendine öğrenen evrimsel algoritmaların yaratacağı senaryolar",
-            "Sanal gerçeklik dünyasında geçen bir detektiflik hikayesi başlat",
-            "Bilmediğimiz bir mitolojiden esinlenerek yeni bir tanrı/tanrıça yarat"
-        ]
-    }
+  "meta": {
+    "name": "Türkçe",
+    "code": "tr"
+  },
+  "settings": {
+    "title": "Ayarlar",
+    "subtitle": "Bağlantı ve model yapılandırması.",
+    "apiKeyLabel": "Google Gemini API Key",
+    "toggleKeyTitle": "Göster/Gizle",
+    "getApiKey": "API Key Al →",
+    "systemInstructions": "Sistem Karakteri (System Instructions)",
+    "systemInstructionsPlaceholder": "Örn: Sen kıdemli bir yazılım mimarısın...",
+    "temperatureLabel": "Temperature (Yaratıcılık)",
+    "temperatureDesc": "Düşük=Net/Analitik, Yüksek=Yaratıcı",
+    "languageLabel": "Dil",
+    "saveAndClose": "Kaydet & Kapat",
+    "saving": "Kaydediliyor...",
+    "apiKeyRejected": "API Key reddedildi.",
+    "cannotConnect": "Sunucuya bağlanılamıyor.",
+    "enterApiKey": "Devam etmek için bir API key girin.",
+    "enterNewKey": "Yeni key girin veya boş bırakıp kapatın..."
+  },
+  "titlebar": {
+    "settingsTitle": "Ayarlar",
+    "closeSuggestedMenu": "Kapat"
+  },
+  "status": {
+    "connected": "Gemini'ye bağlandı",
+    "apiKeyNotSet": "API key ayarlanmamış",
+    "serverNotRunning": "Sunucu çalışmıyor",
+    "connecting": "Bağlantı kuruluyor..."
+  },
+  "models": {
+    "moreModels": "Daha fazla model"
+  },
+  "chat": {
+    "inputPlaceholder": "Mesaj gönder..."
+  },
+  "landing": {
+    "motivationalPhrases": [
+      "Hadi harika bir şeyler inşa edelim.",
+      "Biraz sihir yaratmaya hazır mısın?",
+      "Harika kodlar yazma zamanı.",
+      "Bir sonraki büyük fikrin burada başlıyor.",
+      "Bugünü verimli geçirelim.",
+      "Kodla, yarat, fethet.",
+      "Bugün ne inşa ediyoruz?",
+      "Yaratıcılığını serbest bırak.",
+      "Probleme değil, çözüme odaklan.",
+      "Her kod satırında kesinlik.",
+      "Geleceği bugün tasarla.",
+      "Mükemmelliğe adanmışlık.",
+      "Karmaşıklığı zarif tasarımla yönet.",
+      "Kodun dijital dünyayı şekillendiriyor.",
+      "Disiplinli kal. Odaklan.",
+      "Mantığı sihire dönüştür.",
+      "Sınırlarını zorla.",
+      "Her hata mükemmelliğe giden bir adımdır.",
+      "Sadelik nihai gelişmişliktir.",
+      "Önemli olan kodu yaz.",
+      "İmkansıza meydan oku.",
+      "Mühendisliğini yükselt.",
+      "Zor sorunları çöz."
+    ],
+    "placeholder": "Bugün size nasıl yardımcı olabilirim?",
+    "suggestWrite": "Yaz",
+    "suggestLearn": "Öğren",
+    "suggestCode": "Kodla",
+    "suggestLife": "Günlük",
+    "suggestGemini": "Gemini'ın seçimi",
+    "hello": "Merhaba {name}"
+  },
+  "tooltips": {
+    "attach": "Görsel Ekle",
+    "search": "Web'de Ara",
+    "send": "Gönder",
+    "code": "Python Kodu Çalıştır"
+  },
+  "modelsConfig": {
+    "extendedThinking": "Genişletilmiş düşünme",
+    "thinkComplex": "Karmaşık görevler için daha uzun düşün",
+    "thinkLow": "Düşük",
+    "thinkMed": "Orta",
+    "thinkHigh": "Yüksek",
+    "descPro": "En yetenekli amiral gemisi model",
+    "descFlash": "Hızlı ve verimli model"
+  },
+  "errors": {
+    "aiExplainPrompt": "Bir API hatası aldım. Bu hatayı kullanıcıya kısaca açıkla, neden olduğunu ve nasıl çözülebileceğini anlat. Türkçe yanıt ver.\\n\\nHata kodu: {errorCode}\\nHata mesajı: {toastMsg}\\nTam hata: {rawError}",
+    "fileTooLarge": "Yüklemeye çalıştığınız dosya 100MB üzerinde ({{size}}MB!).",
+    "unsupportedFile": "\"{{name}}\" desteklenmiyor ve yüklenmedi.",
+    "micDenied": "Mikrofon erişimi reddedildi.",
+    "cameraDenied": "Kamera erişimi reddedildi."
+  },
+  "prompts": {
+    "write": [
+      "Blog yazım için yaratıcı başlık fikirleri ver",
+      "Kısa bir motivasyon konuşması yaz",
+      "Bu sabah yaşadığım komik bir olayı hikayeleştir",
+      "Resmi bir toplantı daveti e-postası tasarla",
+      "Bir bilim kurgu romanı için karakter betimlemesi yap",
+      "Müşteriye gönderilecek nazik bir ret e-postası yaz",
+      "İlgi çekici bir LinkedIn gönderisi taslağı oluştur",
+      "Yeni başlayanlar için yoga hakkında bilgilendirici bir metin yaz",
+      "Zaman yolculuğu temalı bir mini öykü yaz",
+      "Bir teknoloji ürününün lansmanı için heyecan verici bir basın bülteni oluştur",
+      "Kahve kültürü üzerine düşündürücü bir deneme kaleme al",
+      "Freelance çalışanlar için verimlilik üzerine bir manifesto yaz",
+      "Sosyal medya için 5 farklı 'Tarihte Bugün' formatlı bilgi metni hazırla",
+      "Zorlu bir hafta geçiren bir arkadaşıma moral veren bir şiir yaz"
+    ],
+    "learn": [
+      "Kuantum fiziğini 5 yaşındaki birine anlatır gibi açıkla",
+      "Rönesans döneminin sanata etkilerini özetle",
+      "Yapay zeka modelleri ağırlıklarını nasıl günceller?",
+      "Fransız devriminin ana nedenleri nelerdi?",
+      "Uzay-zaman eğriliği ne anlama geliyor?",
+      "Blockchain teknolojisinin çalışma mantığını basitçe açıkla",
+      "Genetik mühendisliğinde CRISPR yönteminin önemi nedir?",
+      "Roma İmparatorluğu'nun çöküş sürecini adım adım anlat",
+      "Kara deliklerin etrafındaki 'Olay Ufku' kavramını detaylandır",
+      "Dinozorların yok oluş teorilerini karşılaştırmalı olarak açıkla",
+      "Psikolojide 'Bilişsel Çelişki' nedir ve günlük hayattaki örnekleri nelerdir?",
+      "Modern mimarinin doğuşu ve temel prensipleri hakkında bilgi ver",
+      "Güneş sistemindeki gezegenlerin isimleri nereden gelmektedir?",
+      "Küresel ısınmanın okyanus akıntılarına etkisini anlat",
+      "İnsan beynindeki nöroplastisite kavramı ne demektir?"
+    ],
+    "code": [
+      "React ile basit bir sayaç componenti yaz",
+      "Python'da list comprehension nasıl kullanılır?",
+      "REST API ile GraphQL arasındaki temel farklar nelerdir?",
+      "Rust dilinde 'Borrow Checking' konseptini açıkla",
+      "JavaScript'te async/await yapısını örnekle",
+      "Docker ve Kubernetes arasındaki temel farklar nelerdir?",
+      "SQL'de JOIN türlerini (INNER, LEFT, RIGHT, FULL) örneklerle açıkla",
+      "Bir web projesinde CI/CD pipeline nasıl kurulur?",
+      "TypeScript kullanmanın JavaScript'e göre avantajları nelerdir?",
+      "Git'te 'rebase' ve 'merge' farkı nedir? Hangisi ne zaman kullanılmalı?",
+      "C++ dilinde pointer'ların çalışma mantığı ve bellek yönetimi",
+      "Vue.js ile React'in lifecycle metotlarını karşılaştır",
+      "Microservices mimarisinin avantajları ve dezavantajları nelerdir?",
+      "Hata ayıklama (debugging) sürecimi hızlandıracak 5 ipucu ver",
+      "Güvenli bir şifreleme algoritması tasarlarken nelere dikkat edilmeli?"
+    ],
+    "life": [
+      "Daha verimli ders çalışmak için taktikler ver",
+      "Günlük stresle başa çıkmak için 5 basit yöntem söyle",
+      "Sağlıklı bir uyku düzeni nasıl oluşturabilirim?",
+      "Zaman yönetimimi geliştirmek için ne yapmalıyım?",
+      "Kitap okuma alışkanlığı kazanmak için öneriler ver",
+      "Güne enerjik başlamak için bir sabah rutini oluştur",
+      "Sağlıklı beslenme alışkanlığı edinmek için küçük adımlar öner",
+      "Etkili iletişim becerilerimi nasıl geliştirebilirim?",
+      "Evde kolayca yapılabilecek 15 dakikalık bir egzersiz programı hazırla",
+      "Meditasyon yapmaya yeni başlayan biri için temel adımlar nelerdir?",
+      "Ekran süresini azaltmak için dijital detoks tavsiyeleri ver",
+      "Yeni bir dil öğrenirken kullanılabilecek uygulamalı stratejiler",
+      "Kişisel bütçe ve harcama takibi için pratik yöntemler paylaş",
+      "Özgüven geliştirmek için yapılabilecek zihinsel egzersizler",
+      "Yaratıcılığı tetikleyen hobiler nelerdir?"
+    ],
+    "gemini": [
+      "Bana daha önce hiç duymadığım ilginç bir felsefi paradoks anlat",
+      "Mars'ta kurulacak ilk koloninin bir gününü hayal et",
+      "Eğer hayvanlar konuşabilseydi dünya nasıl bir yer olurdu?",
+      "Bana ilham verecek, çok bilinmeyen tarihi bir anekdot paylaş",
+      "Gelecekteki ulaşım teknolojileri hakkında tahminlerde bulun",
+      "İnsan zihninin sınırlarını zorlayan bir bilim kurgu teorisi üret",
+      "Doğada bulunan matematiğin (Altın Oran, Fibonacci) gizemi",
+      "Eğer zaman yolculuğu icat edilseydi yazılacak ilk ahlak kuralları",
+      "Rüyaların bilimsel açıklaması ve lucid rüya (bilinçli rüya) deneyimleri",
+      "Tarihin akışını değiştiren tesadüfi 5 büyük icat",
+      "Evrendeki olası farklı yaşam formlarının kimyasal yapısı",
+      "Müzik ve insan psikolojisi arasındaki derin bağlantıyı açıkla",
+      "Kendi kendine öğrenen evrimsel algoritmaların yaratacağı senaryolar",
+      "Sanal gerçeklik dünyasında geçen bir detektiflik hikayesi başlat",
+      "Bilmediğimiz bir mitolojiden esinlenerek yeni bir tanrı/tanrıça yarat"
+    ]
+  },
+  "attach": {
+    "uploadFiles": "Dosya Yükle",
+    "recordAudio": "Ses Kaydet",
+    "stopRecording": "Kaydı Durdur",
+    "useCamera": "Kamera Kullan",
+    "capturePhoto": "Çek",
+    "cancelCamera": "İptal"
+  }
 }

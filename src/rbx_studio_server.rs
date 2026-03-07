@@ -39,6 +39,7 @@ pub struct AppState {
     pub conversation_history: Vec<GeminiContent>,
     pub chat_streams: HashMap<String, mpsc::Sender<SsePayload>>,
     pub chat_receivers: HashMap<String, mpsc::Receiver<SsePayload>>,
+    pub active_generations: HashMap<String, tokio::task::AbortHandle>,
 }
 
 pub type PackedState = Arc<Mutex<AppState>>;
@@ -61,6 +62,9 @@ pub enum SsePayload {
     Thought {
         content: String,
     },
+    ThoughtSignature {
+        signature: String,
+    },
     Done,
     Error {
         error: String,
@@ -79,6 +83,7 @@ impl AppState {
             conversation_history: Vec::new(),
             chat_streams: HashMap::new(),
             chat_receivers: HashMap::new(),
+            active_generations: HashMap::new(),
         }
     }
 }
@@ -388,7 +393,7 @@ pub fn build_system_instruction(custom_prompt: Option<String>) -> GeminiContent 
     }
 }
 
-pub async fn send_to_gemini(
+pub async fn stream_to_gemini(
     client: &reqwest::Client,
     api_key: &str,
     model: &str,
@@ -396,15 +401,15 @@ pub async fn send_to_gemini(
     tools: &[ToolDeclaration],
     system_instruction: &GeminiContent,
     generation_config: Option<GenerationConfig>,
-) -> color_eyre::Result<GeminiResponse> {
+) -> color_eyre::Result<reqwest::Response> {
     let url = format!(
-        "{}/{}:generateContent?key={}",
+        "{}/{}:streamGenerateContent?alt=sse&key={}",
         GEMINI_API_BASE, model, api_key
     );
 
     let request_body = GeminiRequest {
         contents: contents.to_vec(),
-        tools: Some(tools.to_vec()),
+        tools: if tools.is_empty() { None } else { Some(tools.to_vec()) },
         system_instruction: Some(system_instruction.clone()),
         generation_config,
     };
@@ -416,25 +421,12 @@ pub async fn send_to_gemini(
         .send()
         .await?;
 
-    let status = response.status();
-    let body_text = response.text().await?;
-
-    if !status.is_success() {
-        return Err(eyre!(
-            "Gemini API returned status {}: {}",
-            status,
-            body_text
-        ));
+    if !response.status().is_success() {
+        let err_body = response.text().await.unwrap_or_default();
+        return Err(eyre!("API Error: {}", err_body));
     }
 
-    let gemini_response: GeminiResponse = serde_json::from_str(&body_text)
-        .map_err(|e| eyre!("Failed to parse Gemini response: {} — body: {}", e, body_text))?;
-
-    if let Some(ref err) = gemini_response.error {
-        return Err(eyre!("Gemini API error {}: {}", err.code.unwrap_or(0), err.message));
-    }
-
-    Ok(gemini_response)
+    Ok(response)
 }
 
 pub fn convert_function_call_to_tool_args(
@@ -534,8 +526,8 @@ pub async fn dispatch_function_call(
 #[derive(Deserialize)]
 pub struct ChatSendRequest {
     pub message: String,
-    pub image_base64: Option<String>,
-    pub image_mime_type: Option<String>,
+    pub file_base64: Option<Vec<String>>,
+    pub file_mime_type: Option<Vec<String>>,
     pub model: Option<String>,
     pub system_instruction: Option<String>,
     pub temperature: Option<f32>,
@@ -568,18 +560,20 @@ pub async fn chat_send_handler(
 
         let mut parts = Vec::new();
 
-        if let (Some(base64), Some(mime)) = (&payload.image_base64, &payload.image_mime_type) {
-            parts.push(GeminiPart {
-                text: None,
-                thought: None,
-                thought_signature: None,
-                inline_data: Some(InlineData {
-                    mime_type: mime.clone(),
-                    data: base64.clone(),
-                }),
-                function_call: None,
-                function_response: None,
-            });
+        if let (Some(base64_list), Some(mime_list)) = (&payload.file_base64, &payload.file_mime_type) {
+            for (base64, mime) in base64_list.iter().zip(mime_list.iter()) {
+                parts.push(GeminiPart {
+                    text: None,
+                    thought: None,
+                    thought_signature: None,
+                    inline_data: Some(InlineData {
+                        mime_type: mime.clone(),
+                        data: base64.clone(),
+                    }),
+                    function_call: None,
+                    function_response: None,
+                });
+            }
         }
 
         parts.push(GeminiPart {
@@ -600,14 +594,41 @@ pub async fn chat_send_handler(
     let state_clone = Arc::clone(&state);
     let chat_id_clone = chat_id.clone();
     
-    // Unpack request paramters right before processing
+    // Unpack request parameters right before processing
     let opts = payload;
 
-    tokio::spawn(async move {
-        process_chat(state_clone, sse_tx, chat_id_clone, opts).await;
+    let handle = tokio::spawn(async move {
+        process_chat(state_clone.clone(), sse_tx, chat_id_clone.clone(), opts).await;
+        // Clean up the abort handle when naturally finished
+        let mut app_state = state_clone.lock().await;
+        app_state.active_generations.remove(&chat_id_clone);
     });
 
+    {
+        let mut app_state = state.lock().await;
+        app_state.active_generations.insert(chat_id.clone(), handle.abort_handle());
+    }
+
     Ok(Json(ChatSendResponse { chat_id }))
+}
+
+#[derive(Deserialize)]
+pub struct ChatStopRequest {
+    pub chat_id: String,
+}
+
+pub async fn chat_stop_handler(
+    State(state): State<PackedState>,
+    Json(payload): Json<ChatStopRequest>,
+) -> Result<impl IntoResponse> {
+    let mut app_state = state.lock().await;
+    
+    if let Some(handle) = app_state.active_generations.remove(&payload.chat_id) {
+        handle.abort();
+        tracing::info!("Aborted Gemini generation for chat_id: {}", payload.chat_id);
+    }
+    
+    Ok(axum::http::StatusCode::OK)
 }
 
 async fn process_chat(
@@ -618,10 +639,9 @@ async fn process_chat(
 ) {
     let client = reqwest::Client::new();
     
-    let mut target_model = opts.model.unwrap_or_else(|| "gemini-2.5-flash".to_string());
-    if target_model == "gemini-3.1-pro-preview" {
-        target_model = "gemini-3.1-pro-preview-customtools".to_string();
-    }
+    let target_model = opts.model.unwrap_or_else(|| "gemini-1.5-flash".to_string());
+    // Use the model name as-is from the frontend.
+
     
     // Gemini 3.1 Pro Preview does not yet support mixing Function Calling with built-in tools like Google Search
     let is_gemini_3 = target_model.starts_with("gemini-3.1");
@@ -695,7 +715,7 @@ async fn process_chat(
             state.lock().await.conversation_history.clone()
         };
 
-        let response = send_to_gemini(
+        let response = match stream_to_gemini(
             &client,
             &api_key,
             &target_model,
@@ -703,10 +723,8 @@ async fn process_chat(
             &tools,
             &system_instruction,
             gen_config.clone(),
-        )
-        .await;
-
-        match response {
+        ).await {
+            Ok(res) => res,
             Err(e) => {
                 let _ = sse_tx.send(SsePayload::Error {
                     error: format!("{}", e),
@@ -714,118 +732,193 @@ async fn process_chat(
                 let _ = sse_tx.send(SsePayload::Done).await;
                 break;
             }
-            Ok(gemini_response) => {
-                let candidate = gemini_response
-                    .candidates
-                    .as_ref()
-                    .and_then(|c| c.first())
-                    .and_then(|c| c.content.as_ref());
+        };
 
-                let parts = match candidate {
-                    Some(content) => content.parts.clone(),
-                    None => {
-                        let _ = sse_tx.send(SsePayload::Error {
-                            error: "No response from Gemini.".to_string(),
-                        }).await;
-                        let _ = sse_tx.send(SsePayload::Done).await;
-                        break;
-                    }
-                };
+        use futures_util::StreamExt;
 
-                let mut has_function_calls = false;
-                let mut function_calls: Vec<GeminiFunctionCall> = Vec::new();
-                let mut text_parts: Vec<String> = Vec::new();
-                let mut thought_parts: Vec<String> = Vec::new();
+        let mut has_function_calls = false;
+        let mut function_calls: Vec<GeminiFunctionCall> = Vec::new();
+        let mut final_text = String::new();
+        let mut final_thought = String::new();
+        let mut final_thought_signature = None;
 
-                for part in &parts {
-                    if let Some(ref fc) = part.function_call {
-                        has_function_calls = true;
-                        function_calls.push(fc.clone());
-                    }
-                    if let Some(ref text) = part.text {
-                        if !text.is_empty() {
-                            if part.thought == Some(true) {
-                                thought_parts.push(text.clone());
-                            } else {
-                                text_parts.push(text.clone());
+        let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
+        while let Some(chunk_res) = stream.next().await {
+            match chunk_res {
+                Ok(bytes) => {
+                    let chunk_str = String::from_utf8_lossy(&bytes);
+                    buffer.push_str(&chunk_str);
+                    
+                    // Process lines in the buffer
+                    while let Some(idx) = buffer.find('\n') {
+                        let line = buffer[..idx].trim().to_string();
+                        buffer = buffer[idx + 1..].to_string();
+
+                        if line.starts_with("data: ") {
+                            let data = line[6..].trim();
+                            if data.is_empty() { continue; }
+
+                            let chunk: GeminiResponse = match serde_json::from_str(data) {
+                                Ok(c) => c,
+                                Err(e) => {
+                                    // Sometimes JSON can be split across lines in non-standard SSE.
+                                    // But Gemini usually sends full JSON per data line.
+                                    // If it fails, it might be a partial line, so we can try to put it back or skip.
+                                    tracing::error!("Failed to parse Gemini JSON: {} | Data: {}", e, data);
+                                    continue;
+                                }
+                            };
+
+                            if let Some(err) = chunk.error {
+                                let _ = sse_tx.send(SsePayload::Error {
+                                    error: format!("Gemini API error {}: {}", err.code.unwrap_or(0), err.message),
+                                }).await;
+                                break;
+                            }
+
+                            if let Some(candidate) = chunk.candidates.as_ref().and_then(|c| c.first()) {
+                                if let Some(content) = candidate.content.as_ref() {
+                                    for part in &content.parts {
+                                        if let Some(ref fc) = part.function_call {
+                                            has_function_calls = true;
+                                            function_calls.push(fc.clone());
+                                        }
+                                        if let Some(ref text) = part.text {
+                                            if !text.is_empty() {
+                                                if part.thought == Some(true) {
+                                                    final_thought.push_str(text);
+                                                    let _ = sse_tx.send(SsePayload::Thought {
+                                                        content: text.clone(),
+                                                    }).await;
+                                                } else {
+                                                    final_text.push_str(text);
+                                                    let _ = sse_tx.send(SsePayload::Text {
+                                                        content: text.clone(),
+                                                    }).await;
+                                                }
+                                            }
+                                        }
+                                        if let Some(ref sig) = part.thought_signature {
+                                            final_thought_signature = Some(sig.clone());
+                                            let _ = sse_tx.send(SsePayload::ThoughtSignature {
+                                                signature: sig.clone(),
+                                            }).await;
+                                        }
+                                        // Also check for thoughtSignature as a hint that this might be a finished thought chunk
+                                        if part.thought_signature.is_some() && final_thought.is_empty() && final_text.is_empty() {
+                                            tracing::debug!("Recorded thought signature without text");
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
-
-                {
-                    let mut app_state = state.lock().await;
-                    app_state.conversation_history.push(GeminiContent {
-                        role: Some("model".to_string()),
-                        parts: parts.clone(),
-                    });
-                }
-
-                if has_function_calls {
-                    let mut function_response_parts: Vec<GeminiPart> = Vec::new();
-
-                    for (idx, fc) in function_calls.iter().enumerate() {
-                        let _ = sse_tx.send(SsePayload::ToolCall {
-                            name: fc.name.clone(),
-                            args: fc.args.clone(),
-                            call_index: idx,
-                        }).await;
-
-                        let result = dispatch_function_call(&state, fc).await;
-
-                        let result_str = match result {
-                            Ok(r) => r,
-                            Err(e) => format!("Error dispatching tool: {}", e),
-                        };
-
-                        let _ = sse_tx.send(SsePayload::ToolResult {
-                            name: fc.name.clone(),
-                            result: result_str.clone(),
-                            call_index: idx,
-                        }).await;
-
-                        function_response_parts.push(GeminiPart {
-                            text: None,
-                            thought: None,
-                            thought_signature: None,
-                            inline_data: None,
-                            function_call: None,
-                            function_response: Some(GeminiFunctionResponse {
-                                name: fc.name.clone(),
-                                response: serde_json::json!({
-                                    "result": result_str
-                                }),
-                            }),
-                        });
-                    }
-
-                    {
-                        let mut app_state = state.lock().await;
-                        app_state.conversation_history.push(GeminiContent {
-                            role: Some("user".to_string()),
-                            parts: function_response_parts,
-                        });
-                    }
-
-                    continue;
-                }
-
-                if !thought_parts.is_empty() {
-                    let _ = sse_tx.send(SsePayload::Thought {
-                        content: thought_parts.join(""),
+                Err(e) => {
+                    let _ = sse_tx.send(SsePayload::Error {
+                        error: format!("Stream decode error: {}", e),
                     }).await;
+                    break;
                 }
-
-                if !text_parts.is_empty() {
-                    let _ = sse_tx.send(SsePayload::Text {
-                        content: text_parts.join(""),
-                    }).await;
-                }
-
-                let _ = sse_tx.send(SsePayload::Done).await;
-                break;
             }
         }
+
+        let mut full_parts: Vec<GeminiPart> = Vec::new();
+        if has_function_calls {
+            for fc in &function_calls {
+                full_parts.push(GeminiPart {
+                    text: None,
+                    thought: None,
+                    thought_signature: final_thought_signature.clone(),
+                    inline_data: None,
+                    function_call: Some(fc.clone()),
+                    function_response: None,
+                });
+            }
+        } else {
+            if !final_thought.is_empty() {
+                full_parts.push(GeminiPart {
+                    text: Some(final_thought),
+                    thought: Some(true),
+                    thought_signature: None,
+                    inline_data: None,
+                    function_call: None,
+                    function_response: None,
+                });
+            }
+            if !final_text.is_empty() {
+                full_parts.push(GeminiPart {
+                    text: Some(final_text),
+                    thought: None,
+                    thought_signature: None,
+                    inline_data: None,
+                    function_call: None,
+                    function_response: None,
+                });
+            }
+        }
+
+        {
+            let mut app_state = state.lock().await;
+            app_state.conversation_history.push(GeminiContent {
+                role: Some("model".to_string()),
+                parts: full_parts,
+            });
+        }
+
+        if has_function_calls {
+            let mut function_response_parts: Vec<GeminiPart> = Vec::new();
+
+            for (idx, fc) in function_calls.iter().enumerate() {
+                let _ = sse_tx.send(SsePayload::ToolCall {
+                    name: fc.name.clone(),
+                    args: fc.args.clone(),
+                    call_index: idx,
+                }).await;
+
+                let result = dispatch_function_call(&state, fc).await;
+
+                let result_str = match result {
+                    Ok(r) => r,
+                    Err(e) => format!("Error dispatching tool: {}", e),
+                };
+
+                let _ = sse_tx.send(SsePayload::ToolResult {
+                    name: fc.name.clone(),
+                    result: result_str.clone(),
+                    call_index: idx,
+                }).await;
+
+                function_response_parts.push(GeminiPart {
+                    text: None,
+                    thought: None,
+                    thought_signature: None,
+                    inline_data: None,
+                    function_call: None,
+                    function_response: Some(GeminiFunctionResponse {
+                        name: fc.name.clone(),
+                        response: serde_json::json!({
+                            "result": result_str
+                        }),
+                    }),
+                });
+            }
+
+            {
+                let mut app_state = state.lock().await;
+                app_state.conversation_history.push(GeminiContent {
+                    role: Some("user".to_string()),
+                    parts: function_response_parts,
+                });
+            }
+
+            continue;
+        }
+
+        let _ = sse_tx.send(SsePayload::Done).await;
+        break;
     }
 
     {
@@ -889,6 +982,13 @@ pub async fn chat_events_handler(
                         .event("thinking")
                         .data(serde_json::json!({
                             "content": content,
+                        }).to_string())
+                }
+                SsePayload::ThoughtSignature { signature } => {
+                    Event::default()
+                        .event("thought_signature")
+                        .data(serde_json::json!({
+                            "signature": signature,
                         }).to_string())
                 }
                 SsePayload::Done => {

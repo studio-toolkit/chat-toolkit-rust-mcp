@@ -1,178 +1,190 @@
 {
-    "meta": {
-        "name": "English",
-        "code": "en"
-    },
-    "settings": {
-        "title": "Settings",
-        "subtitle": "Connection and model configuration.",
-        "apiKeyLabel": "Google Gemini API Key",
-        "toggleKeyTitle": "Show/Hide",
-        "getApiKey": "Get API Key →",
-        "systemInstructions": "System Instructions",
-        "systemInstructionsPlaceholder": "e.g., You are a senior software architect...",
-        "temperatureLabel": "Temperature (Creativity)",
-        "temperatureDesc": "Low=Precise/Analytical, High=Creative",
-        "languageLabel": "Language",
-        "saveAndClose": "Save & Close",
-        "saving": "Saving...",
-        "apiKeyRejected": "API Key was rejected.",
-        "cannotConnect": "Cannot connect to server.",
-        "enterApiKey": "Please enter an API key to continue.",
-        "enterNewKey": "Enter new key or leave empty to keep current..."
-    },
-    "titlebar": {
-        "settingsTitle": "Settings",
-        "closeSuggestedMenu": "Close"
-    },
-    "status": {
-        "connected": "Connected to Gemini",
-        "apiKeyNotSet": "API key not set",
-        "serverNotRunning": "Server not running",
-        "connecting": "Connecting..."
-    },
-    "models": {
-        "moreModels": "More models"
-    },
-    "chat": {
-        "inputPlaceholder": "Send a message..."
-    },
-    "landing": {
-        "motivationalPhrases": [
-            "Let's build something amazing.",
-            "Ready to create some magic?",
-            "Time to write brilliant code.",
-            "Your next big idea starts here.",
-            "Let's make today productive.",
-            "Code, create, conquer.",
-            "What are we building today?",
-            "Unleash your creativity.",
-            "Focus on the solution, not the problem.",
-            "Precision in every line of code.",
-            "Architect the future, today.",
-            "Commit to excellence.",
-            "Master complexity with elegant design.",
-            "Your code shapes the digital world.",
-            "Stay disciplined. Stay focused.",
-            "Transform logic into magic.",
-            "Push your boundaries.",
-            "Every error is a step towards perfection.",
-            "Simplicity is the ultimate sophistication.",
-            "Write code that matters.",
-            "Challenge the impossible.",
-            "Elevate your engineering.",
-            "Solve hard problems."
-        ],
-        "placeholder": "How can I help you today?",
-        "suggestWrite": "Write",
-        "suggestLearn": "Learn",
-        "suggestCode": "Code",
-        "suggestLife": "Life stuff",
-        "suggestGemini": "Gemini's choice",
-        "hello": "Hello {name}"
-    },
-    "tooltips": {
-        "attach": "Attach Image",
-        "search": "Search Web",
-        "send": "Send",
-        "code": "Run Python Code"
-    },
-    "modelsConfig": {
-        "extendedThinking": "Extended thinking",
-        "thinkComplex": "Think longer for complex tasks",
-        "thinkLow": "Low",
-        "thinkMed": "Medium",
-        "thinkHigh": "High",
-        "descPro": "Most capable flagship model",
-        "descFlash": "Fast and efficient model"
-    },
-    "errors": {
-        "aiExplainPrompt": "I received an API error. Please briefly explain this error to the user, what caused it and how it can be resolved.\\n\\nError code: {errorCode}\\nError message: {toastMsg}\\nFull error: {rawError}"
-    },
-    "prompts": {
-        "write": [
-            "Give me creative title ideas for my blog post",
-            "Write a short motivational speech",
-            "Turn a funny morning incident into a story",
-            "Draft a formal meeting invitation email",
-            "Create a character description for a sci-fi novel",
-            "Write a polite rejection email to a client",
-            "Create an engaging LinkedIn post draft",
-            "Write an informative text about yoga for beginners",
-            "Write a mini story with a time travel theme",
-            "Create an exciting press release for a tech product launch",
-            "Write a thought-provoking essay about coffee culture",
-            "Write a productivity manifesto for freelancers",
-            "Create 5 different 'This Day in History' format posts for social media",
-            "Write an uplifting poem for a friend having a tough week"
-        ],
-        "learn": [
-            "Explain quantum physics as if to a 5-year-old",
-            "Summarize the Renaissance era's impact on art",
-            "How do AI models update their weights?",
-            "What were the main causes of the French Revolution?",
-            "What does spacetime curvature mean?",
-            "Simply explain how blockchain technology works",
-            "What is the importance of CRISPR in genetic engineering?",
-            "Describe the fall of the Roman Empire step by step",
-            "Elaborate on the concept of 'Event Horizon' around black holes",
-            "Compare the dinosaur extinction theories",
-            "What is 'Cognitive Dissonance' in psychology and what are daily examples?",
-            "Tell me about the birth of modern architecture and its principles",
-            "Where do the names of the planets in our solar system come from?",
-            "Explain the effect of global warming on ocean currents",
-            "What does the concept of neuroplasticity in the human brain mean?"
-        ],
-        "code": [
-            "Write a simple counter component in React",
-            "How to use list comprehension in Python?",
-            "What are the key differences between REST API and GraphQL?",
-            "Explain the 'Borrow Checking' concept in Rust",
-            "Show async/await in JavaScript with an example",
-            "What are the key differences between Docker and Kubernetes?",
-            "Explain SQL JOIN types (INNER, LEFT, RIGHT, FULL) with examples",
-            "How to set up a CI/CD pipeline for a web project?",
-            "What are the advantages of TypeScript over JavaScript?",
-            "What's the difference between git rebase and merge? When to use which?",
-            "How pointers work in C++ and memory management",
-            "Compare Vue.js and React lifecycle methods",
-            "What are the pros and cons of microservices architecture?",
-            "Give me 5 tips to speed up my debugging process",
-            "What to consider when designing a secure encryption algorithm?"
-        ],
-        "life": [
-            "Give tips for studying more effectively",
-            "Tell me 5 simple methods to deal with daily stress",
-            "How can I create a healthy sleep routine?",
-            "What should I do to improve my time management?",
-            "Give suggestions for building a reading habit",
-            "Create a morning routine to start the day energetically",
-            "Suggest small steps for developing healthy eating habits",
-            "How can I improve my communication skills?",
-            "Create a 15-minute exercise program that can be done at home",
-            "What are the basic steps for someone starting meditation?",
-            "Give digital detox tips to reduce screen time",
-            "Practical strategies for learning a new language",
-            "Share practical methods for personal budgeting and expense tracking",
-            "Mental exercises to build self-confidence",
-            "What hobbies trigger creativity?"
-        ],
-        "gemini": [
-            "Tell me a fascinating philosophical paradox I've never heard of",
-            "Imagine a day in the first colony on Mars",
-            "What would the world be like if animals could talk?",
-            "Share an inspiring, little-known historical anecdote",
-            "Make predictions about future transportation technologies",
-            "Generate a sci-fi theory that pushes the limits of the human mind",
-            "The mystery of mathematics in nature (Golden Ratio, Fibonacci)",
-            "The first moral rules if time travel were invented",
-            "Scientific explanation of dreams and lucid dreaming experiences",
-            "5 great accidental inventions that changed the course of history",
-            "Chemical structure of possible different life forms in the universe",
-            "Explain the deep connection between music and human psychology",
-            "Scenarios created by self-learning evolutionary algorithms",
-            "Start a detective story set in a virtual reality world",
-            "Create a new god/goddess inspired by an unknown mythology"
-        ]
-    }
+  "meta": {
+    "name": "English",
+    "code": "en"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Connection and model configuration.",
+    "apiKeyLabel": "Google Gemini API Key",
+    "toggleKeyTitle": "Show/Hide",
+    "getApiKey": "Get API Key →",
+    "systemInstructions": "System Instructions",
+    "systemInstructionsPlaceholder": "e.g., You are a senior software architect...",
+    "temperatureLabel": "Temperature (Creativity)",
+    "temperatureDesc": "Low=Precise/Analytical, High=Creative",
+    "languageLabel": "Language",
+    "saveAndClose": "Save & Close",
+    "saving": "Saving...",
+    "apiKeyRejected": "API Key was rejected.",
+    "cannotConnect": "Cannot connect to server.",
+    "enterApiKey": "Please enter an API key to continue.",
+    "enterNewKey": "Enter new key or leave empty to keep current..."
+  },
+  "titlebar": {
+    "settingsTitle": "Settings",
+    "closeSuggestedMenu": "Close"
+  },
+  "status": {
+    "connected": "Connected to Gemini",
+    "apiKeyNotSet": "API key not set",
+    "serverNotRunning": "Server not running",
+    "connecting": "Connecting..."
+  },
+  "models": {
+    "moreModels": "More models"
+  },
+  "chat": {
+    "inputPlaceholder": "Send a message..."
+  },
+  "landing": {
+    "motivationalPhrases": [
+      "Let's build something amazing.",
+      "Ready to create some magic?",
+      "Time to write brilliant code.",
+      "Your next big idea starts here.",
+      "Let's make today productive.",
+      "Code, create, conquer.",
+      "What are we building today?",
+      "Unleash your creativity.",
+      "Focus on the solution, not the problem.",
+      "Precision in every line of code.",
+      "Architect the future, today.",
+      "Commit to excellence.",
+      "Master complexity with elegant design.",
+      "Your code shapes the digital world.",
+      "Stay disciplined. Stay focused.",
+      "Transform logic into magic.",
+      "Push your boundaries.",
+      "Every error is a step towards perfection.",
+      "Simplicity is the ultimate sophistication.",
+      "Write code that matters.",
+      "Challenge the impossible.",
+      "Elevate your engineering.",
+      "Solve hard problems."
+    ],
+    "placeholder": "How can I help you today?",
+    "suggestWrite": "Write",
+    "suggestLearn": "Learn",
+    "suggestCode": "Code",
+    "suggestLife": "Life stuff",
+    "suggestGemini": "Gemini's choice",
+    "hello": "Hello {name}"
+  },
+  "tooltips": {
+    "attach": "Attach Image",
+    "search": "Search Web",
+    "send": "Send",
+    "code": "Run Python Code"
+  },
+  "modelsConfig": {
+    "extendedThinking": "Extended thinking",
+    "thinkComplex": "Think longer for complex tasks",
+    "thinkLow": "Low",
+    "thinkMed": "Medium",
+    "thinkHigh": "High",
+    "descPro": "Most capable flagship model",
+    "descFlash": "Fast and efficient model"
+  },
+  "errors": {
+    "aiExplainPrompt": "I received an API error. Please briefly explain this error to the user, what caused it and how it can be resolved.\\n\\nError code: {errorCode}\\nError message: {toastMsg}\\nFull error: {rawError}",
+    "fileTooLarge": "The file you are trying to upload exceeds the 100MB limit ({{size}}MB!).",
+    "unsupportedFile": "\"{{name}}\" is not supported and was not uploaded.",
+    "micDenied": "Microphone access denied.",
+    "cameraDenied": "Camera access denied."
+  },
+  "prompts": {
+    "write": [
+      "Give me creative title ideas for my blog post",
+      "Write a short motivational speech",
+      "Turn a funny morning incident into a story",
+      "Draft a formal meeting invitation email",
+      "Create a character description for a sci-fi novel",
+      "Write a polite rejection email to a client",
+      "Create an engaging LinkedIn post draft",
+      "Write an informative text about yoga for beginners",
+      "Write a mini story with a time travel theme",
+      "Create an exciting press release for a tech product launch",
+      "Write a thought-provoking essay about coffee culture",
+      "Write a productivity manifesto for freelancers",
+      "Create 5 different 'This Day in History' format posts for social media",
+      "Write an uplifting poem for a friend having a tough week"
+    ],
+    "learn": [
+      "Explain quantum physics as if to a 5-year-old",
+      "Summarize the Renaissance era's impact on art",
+      "How do AI models update their weights?",
+      "What were the main causes of the French Revolution?",
+      "What does spacetime curvature mean?",
+      "Simply explain how blockchain technology works",
+      "What is the importance of CRISPR in genetic engineering?",
+      "Describe the fall of the Roman Empire step by step",
+      "Elaborate on the concept of 'Event Horizon' around black holes",
+      "Compare the dinosaur extinction theories",
+      "What is 'Cognitive Dissonance' in psychology and what are daily examples?",
+      "Tell me about the birth of modern architecture and its principles",
+      "Where do the names of the planets in our solar system come from?",
+      "Explain the effect of global warming on ocean currents",
+      "What does the concept of neuroplasticity in the human brain mean?"
+    ],
+    "code": [
+      "Write a simple counter component in React",
+      "How to use list comprehension in Python?",
+      "What are the key differences between REST API and GraphQL?",
+      "Explain the 'Borrow Checking' concept in Rust",
+      "Show async/await in JavaScript with an example",
+      "What are the key differences between Docker and Kubernetes?",
+      "Explain SQL JOIN types (INNER, LEFT, RIGHT, FULL) with examples",
+      "How to set up a CI/CD pipeline for a web project?",
+      "What are the advantages of TypeScript over JavaScript?",
+      "What's the difference between git rebase and merge? When to use which?",
+      "How pointers work in C++ and memory management",
+      "Compare Vue.js and React lifecycle methods",
+      "What are the pros and cons of microservices architecture?",
+      "Give me 5 tips to speed up my debugging process",
+      "What to consider when designing a secure encryption algorithm?"
+    ],
+    "life": [
+      "Give tips for studying more effectively",
+      "Tell me 5 simple methods to deal with daily stress",
+      "How can I create a healthy sleep routine?",
+      "What should I do to improve my time management?",
+      "Give suggestions for building a reading habit",
+      "Create a morning routine to start the day energetically",
+      "Suggest small steps for developing healthy eating habits",
+      "How can I improve my communication skills?",
+      "Create a 15-minute exercise program that can be done at home",
+      "What are the basic steps for someone starting meditation?",
+      "Give digital detox tips to reduce screen time",
+      "Practical strategies for learning a new language",
+      "Share practical methods for personal budgeting and expense tracking",
+      "Mental exercises to build self-confidence",
+      "What hobbies trigger creativity?"
+    ],
+    "gemini": [
+      "Tell me a fascinating philosophical paradox I've never heard of",
+      "Imagine a day in the first colony on Mars",
+      "What would the world be like if animals could talk?",
+      "Share an inspiring, little-known historical anecdote",
+      "Make predictions about future transportation technologies",
+      "Generate a sci-fi theory that pushes the limits of the human mind",
+      "The mystery of mathematics in nature (Golden Ratio, Fibonacci)",
+      "The first moral rules if time travel were invented",
+      "Scientific explanation of dreams and lucid dreaming experiences",
+      "5 great accidental inventions that changed the course of history",
+      "Chemical structure of possible different life forms in the universe",
+      "Explain the deep connection between music and human psychology",
+      "Scenarios created by self-learning evolutionary algorithms",
+      "Start a detective story set in a virtual reality world",
+      "Create a new god/goddess inspired by an unknown mythology"
+    ]
+  },
+  "attach": {
+    "uploadFiles": "Upload Files",
+    "recordAudio": "Record Audio",
+    "stopRecording": "Stop Recording",
+    "useCamera": "Use Camera",
+    "capturePhoto": "Capture",
+    "cancelCamera": "Cancel"
+  }
 }

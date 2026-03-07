@@ -1,178 +1,190 @@
 {
-    "meta": {
-        "name": "Français",
-        "code": "fr"
-    },
-    "settings": {
-        "title": "Paramètres",
-        "subtitle": "Configuration de la connexion et du modèle.",
-        "apiKeyLabel": "Clé API Google Gemini",
-        "toggleKeyTitle": "Afficher/Masquer",
-        "getApiKey": "Obtenir une clé API →",
-        "systemInstructions": "Instructions système",
-        "systemInstructionsPlaceholder": "ex: Vous êtes un architecte logiciel senior...",
-        "temperatureLabel": "Température (Créativité)",
-        "temperatureDesc": "Bas=Précis/Analytique, Haut=Créatif",
-        "languageLabel": "Langue",
-        "saveAndClose": "Enregistrer et Fermer",
-        "saving": "Enregistrement...",
-        "apiKeyRejected": "La clé API a été rejetée.",
-        "cannotConnect": "Impossible de se connecter au serveur.",
-        "enterApiKey": "Veuillez entrer une clé API pour continuer.",
-        "enterNewKey": "Entrez une nouvelle clé ou laissez vide..."
-    },
-    "titlebar": {
-        "settingsTitle": "Paramètres",
-        "closeSuggestedMenu": "Fermer"
-    },
-    "status": {
-        "connected": "Connecté à Gemini",
-        "apiKeyNotSet": "Clé API non définie",
-        "serverNotRunning": "Serveur à l'arrêt",
-        "connecting": "Connexion..."
-    },
-    "models": {
-        "moreModels": "Plus de modèles"
-    },
-    "chat": {
-        "inputPlaceholder": "Écrivez un message..."
-    },
-    "landing": {
-        "motivationalPhrases": [
-            "Construisons quelque chose d'incroyable.",
-            "Prêt à créer de la magie ?",
-            "Il est temps d'écrire du code brillant.",
-            "Votre prochaine grande idée commence ici.",
-            "Rendons cette journée productive.",
-            "Codez, créez, conquérez.",
-            "Que construisons-nous aujourd'hui ?",
-            "Libérez votre créativité.",
-            "Concentrez-vous sur la solution, pas sur le problème.",
-            "La précision dans chaque ligne de code.",
-            "Construisez l'avenir, aujourd'hui.",
-            "Engagez-vous envers l'excellence.",
-            "Maîtrisez la complexité avec un design élégant.",
-            "Votre code façonne le monde numérique.",
-            "Restez discipliné. Restez concentré.",
-            "Transformez la logique en magie.",
-            "Repoussez vos limites.",
-            "Chaque erreur est un pas vers la perfection.",
-            "La simplicité est la sophistication suprême.",
-            "Écrivez un code qui compte.",
-            "Défiez l'impossible.",
-            "Élevez votre ingénierie.",
-            "Résolvez des problèmes difficiles."
-        ],
-        "placeholder": "Comment puis-je vous aider aujourd'hui ?",
-        "suggestWrite": "Écrire",
-        "suggestLearn": "Apprendre",
-        "suggestCode": "Code",
-        "suggestLife": "Vie quotidienne",
-        "suggestGemini": "Le choix de Gemini",
-        "hello": "Bonjour {name}"
-    },
-    "tooltips": {
-        "attach": "Joindre une image",
-        "search": "Recherche web",
-        "send": "Envoyer",
-        "code": "Exécuter le code Python"
-    },
-    "modelsConfig": {
-        "extendedThinking": "Pensée étendue",
-        "thinkComplex": "Réfléchir plus longtemps pour les tâches complexes",
-        "thinkLow": "Faible",
-        "thinkMed": "Moyen",
-        "thinkHigh": "Élevé",
-        "descPro": "Modèle phare le plus performant",
-        "descFlash": "Modèle rapide et efficace"
-    },
-    "errors": {
-        "aiExplainPrompt": "J'ai reçu une erreur API. Veuillez expliquer brièvement cette erreur à l'utilisateur, ce qui l'a causée et comment la résoudre. Répondez en français.\\n\\nCode d'erreur: {errorCode}\\nMessage d'erreur: {toastMsg}\\nErreur brute: {rawError}"
-    },
-    "prompts": {
-        "write": [
-            "Donnez-moi des idées créatives de titres pour mon blog",
-            "Écrivez un court discours de motivation",
-            "Transformez un incident matinal amusant en histoire",
-            "Rédigez un e-mail officiel d'invitation à une réunion",
-            "Créez une description de personnage pour un roman de science-fiction",
-            "Rédigez un e-mail de refus poli à un client",
-            "Créez un brouillon passionnant pour une publication LinkedIn",
-            "Écrivez un texte instructif sur le yoga pour débutants",
-            "Écrivez une mini-histoire sur le voyage dans le temps",
-            "Rédigez un communiqué de presse pour un lancement de produit",
-            "Écrivez un essai stimulant sur la culture du café",
-            "Rédigez un manifeste de productivité pour les pigistes",
-            "Créez 5 publications 'Ce jour dans l'histoire' pour les réseaux sociaux",
-            "Écrivez un poème réconfortant pour un ami"
-        ],
-        "learn": [
-            "Expliquez la physique quantique comme si j'avais 5 ans",
-            "Résumez l'impact de la Renaissance sur l'art",
-            "Comment les modèles d'IA mettent-ils à jour leurs poids ?",
-            "Quelles étaient les principales causes de la Révolution française ?",
-            "Que signifie la courbure de l'espace-temps ?",
-            "Expliquez simplement le fonctionnement de la blockchain",
-            "Quelle est l'importance de CRISPR en génétique ?",
-            "Décrivez la chute de l'Empire romain étape par étape",
-            "Détaillez le concept d''horizon des événements' autour des trous noirs",
-            "Comparez les théories de l'extinction des dinosaures",
-            "Qu'est-ce que la 'dissonance cognitive' avec des exemples ?",
-            "Parlez-moi de la naissance de l'architecture moderne",
-            "D'où viennent les noms des planètes du système solaire ?",
-            "Expliquez les effets du réchauffement de la Terre sur les océans",
-            "Que signifie le concept de neuroplasticité du cerveau ?"
-        ],
-        "code": [
-            "Écrivez un composant de compteur simple en React",
-            "Comment utiliser la compréhension de liste en Python ?",
-            "Quelles sont les principales différences entre REST API et GraphQL ?",
-            "Expliquez le concept de 'Borrow Checking' en Rust",
-            "Montrez async/await en JavaScript avec un exemple",
-            "Quelles sont les différences clés entre Docker et Kubernetes ?",
-            "Expliquez les types de SQL JOIN (INNER, LEFT, RIGHT, FULL)",
-            "Comment configurer un pipeline CI/CD pour un projet web ?",
-            "Quels sont les avantages de TypeScript par rapport à JavaScript ?",
-            "Quelle est la différence entre git rebase et merge ?",
-            "Comment fonctionnent les pointeurs en C++ et la gestion de la mémoire",
-            "Comparez les méthodes de cycle de vie de Vue.js et React",
-            "Quels sont les avantages et inconvénients des microservices ?",
-            "Donnez-moi 5 astuces pour accélérer mon processus de débogage",
-            "À quoi faut-il penser lors de la conception d'un algorithme de chiffrement ?"
-        ],
-        "life": [
-            "Donnez des conseils pour étudier plus efficacement",
-            "Donnez-moi 5 méthodes simples pour faire face au stress quotidien",
-            "Comment puis-je créer une routine de sommeil saine ?",
-            "Que faire pour améliorer ma gestion du temps ?",
-            "Rédigez des suggestions pour acquérir l'habitude de lire",
-            "Créez une routine matinale pour commencer la journée avec énergie",
-            "Suggérez de petites étapes pour une alimentation saine",
-            "Comment puis-je améliorer mes compétences en communication ?",
-            "Créez un programme d'exercice de 15 minutes à la maison",
-            "Quelles sont les étapes de base pour la méditation ?",
-            "Donnez des astuces de détox numérique pour réduire le temps d'écran",
-            "Stratégies pratiques pour apprendre une nouvelle langue",
-            "Partagez des méthodes pour le suivi du budget personnel",
-            "Exercices mentaux pour renforcer la confiance en soi",
-            "Quels passe-temps déclenchent la créativité ?"
-        ],
-        "gemini": [
-            "Parlez-moi d'un paradoxe philosophique fascinant",
-            "Imaginez une journée dans la première colonie sur Mars",
-            "Comment serait le monde si les animaux pouvaient parler ?",
-            "Partagez une anecdote historique peu connue et inspirante",
-            "Faites des prédictions sur les technologies de transport futur",
-            "Générez une théorie de science-fiction qui repousse l'esprit humain",
-            "Le mystère des mathématiques dans la nature (Nombre d'or)",
-            "Les premières règles morales si le voyage dans le temps existait",
-            "Explication scientifique des rêves et de la lucidité",
-            "5 grandes inventions accidentelles qui ont changé l'histoire",
-            "Structure chimique possible d'autres formes de vie dans l'univers",
-            "Expliquez le lien profond entre la musique et la psychologie humaine",
-            "Scénarios créés par des algorithmes évolutifs auto-apprenants",
-            "Commencez une histoire de détectives dans une réalité virtuelle",
-            "Créez une nouvelle déesse inspirée par une mythologie inconnue"
-        ]
-    }
+  "meta": {
+    "name": "Français",
+    "code": "fr"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Configuration de la connexion et du modèle.",
+    "apiKeyLabel": "Clé API Google Gemini",
+    "toggleKeyTitle": "Afficher/Masquer",
+    "getApiKey": "Obtenir une clé API →",
+    "systemInstructions": "Instructions système",
+    "systemInstructionsPlaceholder": "ex: Vous êtes un architecte logiciel senior...",
+    "temperatureLabel": "Température (Créativité)",
+    "temperatureDesc": "Bas=Précis/Analytique, Haut=Créatif",
+    "languageLabel": "Langue",
+    "saveAndClose": "Enregistrer et Fermer",
+    "saving": "Enregistrement...",
+    "apiKeyRejected": "La clé API a été rejetée.",
+    "cannotConnect": "Impossible de se connecter au serveur.",
+    "enterApiKey": "Veuillez entrer une clé API pour continuer.",
+    "enterNewKey": "Entrez une nouvelle clé ou laissez vide..."
+  },
+  "titlebar": {
+    "settingsTitle": "Paramètres",
+    "closeSuggestedMenu": "Fermer"
+  },
+  "status": {
+    "connected": "Connecté à Gemini",
+    "apiKeyNotSet": "Clé API non définie",
+    "serverNotRunning": "Serveur à l'arrêt",
+    "connecting": "Connexion..."
+  },
+  "models": {
+    "moreModels": "Plus de modèles"
+  },
+  "chat": {
+    "inputPlaceholder": "Écrivez un message..."
+  },
+  "landing": {
+    "motivationalPhrases": [
+      "Construisons quelque chose d'incroyable.",
+      "Prêt à créer de la magie ?",
+      "Il est temps d'écrire du code brillant.",
+      "Votre prochaine grande idée commence ici.",
+      "Rendons cette journée productive.",
+      "Codez, créez, conquérez.",
+      "Que construisons-nous aujourd'hui ?",
+      "Libérez votre créativité.",
+      "Concentrez-vous sur la solution, pas sur le problème.",
+      "La précision dans chaque ligne de code.",
+      "Construisez l'avenir, aujourd'hui.",
+      "Engagez-vous envers l'excellence.",
+      "Maîtrisez la complexité avec un design élégant.",
+      "Votre code façonne le monde numérique.",
+      "Restez discipliné. Restez concentré.",
+      "Transformez la logique en magie.",
+      "Repoussez vos limites.",
+      "Chaque erreur est un pas vers la perfection.",
+      "La simplicité est la sophistication suprême.",
+      "Écrivez un code qui compte.",
+      "Défiez l'impossible.",
+      "Élevez votre ingénierie.",
+      "Résolvez des problèmes difficiles."
+    ],
+    "placeholder": "Comment puis-je vous aider aujourd'hui ?",
+    "suggestWrite": "Écrire",
+    "suggestLearn": "Apprendre",
+    "suggestCode": "Code",
+    "suggestLife": "Vie quotidienne",
+    "suggestGemini": "Le choix de Gemini",
+    "hello": "Bonjour {name}"
+  },
+  "tooltips": {
+    "attach": "Joindre une image",
+    "search": "Recherche web",
+    "send": "Envoyer",
+    "code": "Exécuter le code Python"
+  },
+  "modelsConfig": {
+    "extendedThinking": "Pensée étendue",
+    "thinkComplex": "Réfléchir plus longtemps pour les tâches complexes",
+    "thinkLow": "Faible",
+    "thinkMed": "Moyen",
+    "thinkHigh": "Élevé",
+    "descPro": "Modèle phare le plus performant",
+    "descFlash": "Modèle rapide et efficace"
+  },
+  "errors": {
+    "aiExplainPrompt": "J'ai reçu une erreur API. Veuillez expliquer brièvement cette erreur à l'utilisateur, ce qui l'a causée et comment la résoudre. Répondez en français.\\n\\nCode d'erreur: {errorCode}\\nMessage d'erreur: {toastMsg}\\nErreur brute: {rawError}",
+    "fileTooLarge": "Le fichier que vous essayez de télécharger dépasse la limite de 100 Mo ({{size}} Mo!).",
+    "unsupportedFile": "\"{{name}}\" n'est pas pris en charge et n'a pas été téléchargé.",
+    "micDenied": "Accès au microphone refusé.",
+    "cameraDenied": "Accès à la caméra refusé."
+  },
+  "prompts": {
+    "write": [
+      "Donnez-moi des idées créatives de titres pour mon blog",
+      "Écrivez un court discours de motivation",
+      "Transformez un incident matinal amusant en histoire",
+      "Rédigez un e-mail officiel d'invitation à une réunion",
+      "Créez une description de personnage pour un roman de science-fiction",
+      "Rédigez un e-mail de refus poli à un client",
+      "Créez un brouillon passionnant pour une publication LinkedIn",
+      "Écrivez un texte instructif sur le yoga pour débutants",
+      "Écrivez une mini-histoire sur le voyage dans le temps",
+      "Rédigez un communiqué de presse pour un lancement de produit",
+      "Écrivez un essai stimulant sur la culture du café",
+      "Rédigez un manifeste de productivité pour les pigistes",
+      "Créez 5 publications 'Ce jour dans l'histoire' pour les réseaux sociaux",
+      "Écrivez un poème réconfortant pour un ami"
+    ],
+    "learn": [
+      "Expliquez la physique quantique comme si j'avais 5 ans",
+      "Résumez l'impact de la Renaissance sur l'art",
+      "Comment les modèles d'IA mettent-ils à jour leurs poids ?",
+      "Quelles étaient les principales causes de la Révolution française ?",
+      "Que signifie la courbure de l'espace-temps ?",
+      "Expliquez simplement le fonctionnement de la blockchain",
+      "Quelle est l'importance de CRISPR en génétique ?",
+      "Décrivez la chute de l'Empire romain étape par étape",
+      "Détaillez le concept d''horizon des événements' autour des trous noirs",
+      "Comparez les théories de l'extinction des dinosaures",
+      "Qu'est-ce que la 'dissonance cognitive' avec des exemples ?",
+      "Parlez-moi de la naissance de l'architecture moderne",
+      "D'où viennent les noms des planètes du système solaire ?",
+      "Expliquez les effets du réchauffement de la Terre sur les océans",
+      "Que signifie le concept de neuroplasticité du cerveau ?"
+    ],
+    "code": [
+      "Écrivez un composant de compteur simple en React",
+      "Comment utiliser la compréhension de liste en Python ?",
+      "Quelles sont les principales différences entre REST API et GraphQL ?",
+      "Expliquez le concept de 'Borrow Checking' en Rust",
+      "Montrez async/await en JavaScript avec un exemple",
+      "Quelles sont les différences clés entre Docker et Kubernetes ?",
+      "Expliquez les types de SQL JOIN (INNER, LEFT, RIGHT, FULL)",
+      "Comment configurer un pipeline CI/CD pour un projet web ?",
+      "Quels sont les avantages de TypeScript par rapport à JavaScript ?",
+      "Quelle est la différence entre git rebase et merge ?",
+      "Comment fonctionnent les pointeurs en C++ et la gestion de la mémoire",
+      "Comparez les méthodes de cycle de vie de Vue.js et React",
+      "Quels sont les avantages et inconvénients des microservices ?",
+      "Donnez-moi 5 astuces pour accélérer mon processus de débogage",
+      "À quoi faut-il penser lors de la conception d'un algorithme de chiffrement ?"
+    ],
+    "life": [
+      "Donnez des conseils pour étudier plus efficacement",
+      "Donnez-moi 5 méthodes simples pour faire face au stress quotidien",
+      "Comment puis-je créer une routine de sommeil saine ?",
+      "Que faire pour améliorer ma gestion du temps ?",
+      "Rédigez des suggestions pour acquérir l'habitude de lire",
+      "Créez une routine matinale pour commencer la journée avec énergie",
+      "Suggérez de petites étapes pour une alimentation saine",
+      "Comment puis-je améliorer mes compétences en communication ?",
+      "Créez un programme d'exercice de 15 minutes à la maison",
+      "Quelles sont les étapes de base pour la méditation ?",
+      "Donnez des astuces de détox numérique pour réduire le temps d'écran",
+      "Stratégies pratiques pour apprendre une nouvelle langue",
+      "Partagez des méthodes pour le suivi du budget personnel",
+      "Exercices mentaux pour renforcer la confiance en soi",
+      "Quels passe-temps déclenchent la créativité ?"
+    ],
+    "gemini": [
+      "Parlez-moi d'un paradoxe philosophique fascinant",
+      "Imaginez une journée dans la première colonie sur Mars",
+      "Comment serait le monde si les animaux pouvaient parler ?",
+      "Partagez une anecdote historique peu connue et inspirante",
+      "Faites des prédictions sur les technologies de transport futur",
+      "Générez une théorie de science-fiction qui repousse l'esprit humain",
+      "Le mystère des mathématiques dans la nature (Nombre d'or)",
+      "Les premières règles morales si le voyage dans le temps existait",
+      "Explication scientifique des rêves et de la lucidité",
+      "5 grandes inventions accidentelles qui ont changé l'histoire",
+      "Structure chimique possible d'autres formes de vie dans l'univers",
+      "Expliquez le lien profond entre la musique et la psychologie humaine",
+      "Scénarios créés par des algorithmes évolutifs auto-apprenants",
+      "Commencez une histoire de détectives dans une réalité virtuelle",
+      "Créez une nouvelle déesse inspirée par une mythologie inconnue"
+    ]
+  },
+  "attach": {
+    "uploadFiles": "Télécharger des fichiers",
+    "recordAudio": "Enregistrer l'audio",
+    "stopRecording": "Arrêter l'enregistrement",
+    "useCamera": "Utiliser la caméra",
+    "capturePhoto": "Capturer",
+    "cancelCamera": "Annuler"
+  }
 }

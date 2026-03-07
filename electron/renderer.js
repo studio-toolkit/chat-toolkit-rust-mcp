@@ -47,7 +47,8 @@ function t(key, replacements) {
     }
     if (typeof val === "string" && replacements) {
         for (const [rk, rv] of Object.entries(replacements)) {
-            val = val.replace(`{${rk}}`, rv);
+            // Match both {key} and {{key}}
+            val = val.replace(new RegExp(`\\{\\{?${rk}\\}\\}?`, 'g'), rv);
         }
     }
     return val;
@@ -192,10 +193,158 @@ let currentModel = "gemini-1.5-pro";
 let currentThinkingLevel = "none"; // Disabled by default until toggle is checked
 let useSearch = true; // Web Grounding default ON
 let useCode = false;
-let attachedImageBase64 = null;
-let attachedImageMimeType = null;
+let attachedFiles = []; // Array of {base64, mimeType, name, dataUrl}
 let isExplainingError = false; // Guard flag to prevent recursive error loops
 let userAvatarBase64 = null;
+let activeEventSource = null;
+let currentChatId = null;
+let isAborting = false;
+
+// ─── Processing State & Abort ──────────────────────────────────────
+function setProcessingState(processing) {
+    isProcessing = processing;
+    if (processing) {
+        sendBtn.classList.add("active", "stop-btn");
+        sendBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+    } else {
+        sendBtn.classList.remove("stop-btn");
+        updateSendButtonState();
+        sendBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`;
+    }
+}
+
+function updateSendButtonState() {
+    if ((inputEl.value.trim() || attachedFiles.length > 0) && !isProcessing) {
+        sendBtn.classList.add("active");
+    } else {
+        sendBtn.classList.remove("active");
+    }
+}
+
+let finishGenerationHandler = null;
+
+function abortGeneration() {
+    if (activeEventSource) {
+        isAborting = true;
+
+        // Immediately close the network connection
+        activeEventSource.close();
+        activeEventSource = null;
+
+        // Cleanup UI: Remove "Thinking" or "Connecting" indicators immediately
+        const typingMsg = document.getElementById("typing-message");
+        if (typingMsg) {
+            const indicators = typingMsg.querySelectorAll(".thinking-indicator, .connecting-indicator");
+            indicators.forEach(el => el.remove());
+
+            // Also remove thought chains and tool calls during abort as per user requirement
+            const temporaryStuff = typingMsg.querySelectorAll(".thought-chain, .tool-call");
+            temporaryStuff.forEach(el => el.remove());
+        }
+
+        // Send stop request to backend (background)
+        if (currentChatId) {
+            fetch(`${API_BASE}/chat/stop`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: currentChatId })
+            }).catch(e => console.error("Abort failed", e));
+        }
+
+        // Finalize the UI state
+        if (finishGenerationHandler) {
+            finishGenerationHandler();
+        }
+    }
+}
+
+// ─── MIME Type Helper ──────────────────────────────────────────────
+// MIME types Gemini API natively accepts (inline data)
+const GEMINI_NATIVE_MIMES = new Set([
+    'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif', 'image/bmp',
+    'audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/aiff', 'audio/aac', 'audio/ogg',
+    'audio/flac', 'audio/mp4', 'audio/webm',
+    'video/mp4', 'video/mpeg', 'video/quicktime', 'video/avi', 'video/x-msvideo',
+    'video/x-flv', 'video/mpg', 'video/webm', 'video/wmv', 'video/3gpp', 'video/x-matroska',
+    'application/pdf', 'application/json',
+    'text/plain', 'text/html', 'text/css', 'text/javascript', 'text/typescript',
+    'text/csv', 'text/markdown', 'text/xml', 'text/rtf',
+]);
+
+// Extension → raw MIME lookup
+const EXTENSION_MIME_MAP = {
+    'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+    'webp': 'image/webp', 'bmp': 'image/bmp', 'heic': 'image/heic', 'heif': 'image/heif',
+    // Not natively supported by Gemini — will be converted to text/plain:
+    'svg': 'image/svg+xml', 'gif': 'image/gif', 'ico': 'image/x-icon',
+    'tiff': 'image/tiff', 'tif': 'image/tiff', 'avif': 'image/avif',
+    'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg',
+    'flac': 'audio/flac', 'aac': 'audio/aac', 'weba': 'audio/webm', 'm4a': 'audio/mp4',
+    'mp4': 'video/mp4', 'webm': 'video/webm', 'mov': 'video/quicktime',
+    'avi': 'video/x-msvideo', 'mkv': 'video/x-matroska',
+    'pdf': 'application/pdf', 'json': 'application/json',
+    'txt': 'text/plain', 'csv': 'text/csv', 'xml': 'text/xml',
+    'html': 'text/html', 'htm': 'text/html', 'css': 'text/css',
+    'js': 'text/javascript', 'ts': 'text/typescript', 'jsx': 'text/javascript', 'tsx': 'text/typescript',
+    'md': 'text/markdown', 'markdown': 'text/markdown', 'rtf': 'text/rtf',
+    // Code files → text/plain
+    'py': 'text/plain', 'lua': 'text/plain', 'rb': 'text/plain', 'rs': 'text/plain',
+    'go': 'text/plain', 'java': 'text/plain', 'c': 'text/plain', 'cpp': 'text/plain',
+    'cs': 'text/plain', 'sh': 'text/plain', 'bash': 'text/plain', 'zsh': 'text/plain',
+    'yaml': 'text/plain', 'yml': 'text/plain', 'toml': 'text/plain',
+    'ini': 'text/plain', 'cfg': 'text/plain', 'conf': 'text/plain', 'log': 'text/plain',
+    // Roblox Studio files (XML-based) → text/xml
+    'rbxlx': 'text/xml', 'rbxm': 'text/xml', 'rbxmx': 'text/xml',
+};
+
+function getMimeType(fileName, detectedMime, fileType) {
+    // 1. Try file.type from the File API (most reliable when available)
+    if (fileType && fileType !== 'application/octet-stream' && fileType !== '') {
+        return fileType;
+    }
+    // 2. Try the MIME from the data URL
+    if (detectedMime && detectedMime !== 'application/octet-stream') {
+        return detectedMime;
+    }
+    // 3. Fallback to extension-based lookup
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    return EXTENSION_MIME_MAP[ext] || detectedMime || 'application/octet-stream';
+}
+
+// Detect MIME from base64 magic bytes
+function detectMimeFromBase64(base64) {
+    if (!base64 || base64.length < 8) return null;
+    const header = base64.substring(0, 16);
+    if (header.startsWith('iVBOR')) return 'image/png';
+    if (header.startsWith('/9j/')) return 'image/jpeg';
+    if (header.startsWith('UklGR')) return 'image/webp';
+    if (header.startsWith('Qk')) return 'image/bmp';
+    if (header.startsWith('AAAA')) return 'video/mp4';
+    if (header.startsWith('JVBERi')) return 'application/pdf';
+    if (header.startsWith('T2dnU')) return 'audio/ogg';
+    if (header.startsWith('R0lGO')) return 'image/gif'; // GIF — not natively supported, will become text
+    return null;
+}
+
+// Convert any MIME to one Gemini can handle.
+// If natively supported → keep. If text-readable → text/plain. Otherwise → null (reject).
+function toGeminiMime(mimeType) {
+    if (!mimeType) return null;
+    if (GEMINI_NATIVE_MIMES.has(mimeType)) return mimeType;
+    if (mimeType.startsWith('text/')) return 'text/plain';
+    if (mimeType.includes('xml') || mimeType.includes('xhtml') || mimeType.includes('svg')) return 'text/plain';
+    if (mimeType.includes('json')) return 'text/plain';
+    return null; // Binary / unsupported
+}
+
+// Check if a base64-encoded file is likely binary (has null bytes in the first 512 bytes)
+function isLikelyBinary(base64) {
+    const binary = atob(base64.substring(0, 700));
+    for (let i = 0; i < binary.length; i++) {
+        if (binary.charCodeAt(i) === 0) return true;
+    }
+    return false;
+}
 
 async function loadUserAvatar() {
     return new Promise((resolve) => {
@@ -367,7 +516,7 @@ function hideModal() {
 const chatTree = {};
 let activeNodeId = null;
 
-function createNode(role, content, parentId = null, extraNodesHTML = "", images = [], info = null) {
+function createNode(role, content, parentId = null, extraNodesHTML = "", images = [], info = null, thoughtSignature = null) {
     const id = "node_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
     const node = {
         id,
@@ -379,7 +528,8 @@ function createNode(role, content, parentId = null, extraNodesHTML = "", images 
         children: [],
         timestamp: new Date().toISOString(),
         duration: 0,
-        info
+        info,
+        thoughtSignature
     };
     chatTree[id] = node;
     if (parentId && chatTree[parentId]) {
@@ -407,29 +557,83 @@ function getDeepestLeaf(nodeId) {
 }
 
 function buildGeminiHistory(leafId) {
-    const path = getBranchPath(leafId);
+    const fullPath = getBranchPath(leafId);
+    if (!fullPath || fullPath.length === 0) return [];
+
+    const RECENT_LIMIT = 15;
+    const MEDIA_LIMIT = 4;
+
+    // Split path into old and recent
+    const recentIndex = Math.max(0, fullPath.length - RECENT_LIMIT);
+    const oldNodes = fullPath.slice(0, recentIndex);
+    const recentNodes = fullPath.slice(recentIndex);
+
     const history = [];
-    for (const node of path) {
+
+    // Phase 1: Aggregate keypoints from older history
+    const aggregatedKeypoints = new Set();
+    oldNodes.forEach(node => {
+        if (node.model_keypoints) {
+            node.model_keypoints.split(/[,;\n]/).forEach(kp => {
+                const trimmed = kp.trim();
+                if (trimmed) aggregatedKeypoints.add(trimmed);
+            });
+        }
+    });
+
+    // Phase 2: Add single Archival Memory block if we have old data
+    if (aggregatedKeypoints.size > 0) {
+        history.push({
+            role: "model",
+            parts: [{ text: `[ARCHIVAL MEMORY: Prior parts of this conversation covered: ${Array.from(aggregatedKeypoints).join(", ")}. Use these key points as context if needed, but stay focused on the user's latest message.]` }]
+        });
+    }
+
+    // Phase 3: Process recent nodes
+    for (let i = 0; i < recentNodes.length; i++) {
+        const node = recentNodes[i];
+        const isVeryRecentMedia = i >= (recentNodes.length - MEDIA_LIMIT);
         let parts = [];
-        if (node.images && node.images.length > 0) {
+
+        // Add media only if it's very recent to save tokens and prevent model "hallucinations" on stale visuals
+        if (isVeryRecentMedia && node.images && node.images.length > 0) {
             node.images.forEach(img => {
-                const partsMatch = img.match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
+                const partsMatch = img.match(/^data:([^;]+)(?:;name=[^;]+)?;base64,(.+)$/);
                 if (partsMatch && partsMatch.length === 3) {
+                    const rawMime = partsMatch[1];
+                    const base64 = partsMatch[2];
+                    let safeMime = toGeminiMime(rawMime);
+                    if (!safeMime && rawMime.startsWith("audio/")) safeMime = rawMime;
+                    if (!safeMime) return;
+
                     parts.push({
                         inlineData: {
-                            mimeType: partsMatch[1],
-                            data: partsMatch[2]
+                            mimeType: safeMime,
+                            data: base64
                         }
                     });
                 }
             });
         }
+
+        // Add text content
         if (node.content) {
-            // Check if it was an error message
+            // Discard error messages from history as they confuse the model
             if (node.role === "assistant" && node.content.startsWith("Error [")) continue;
-            parts.push({ text: node.content });
+
+            const part = { text: node.content };
+            if (node.thoughtSignature) {
+                part.thoughtSignature = node.thoughtSignature;
+            }
+            parts.push(part);
+        } else if (node.role === "assistant" && node.thoughtSignature) {
+            // Special case for tool-only nodes
+            parts.push({
+                text: "",
+                thoughtSignature: node.thoughtSignature
+            });
         }
-        // Include tool results if stored in extraNodes
+
         if (parts.length > 0) {
             history.push({
                 role: node.role === "assistant" ? "model" : "user",
@@ -437,6 +641,7 @@ function buildGeminiHistory(leafId) {
             });
         }
     }
+
     return history;
 }
 
@@ -568,17 +773,54 @@ function addMessageToDOM(role, content, extraNodes = [], images = [], nodeId = n
     const contentEl = document.createElement("div");
     contentEl.className = "message-content";
 
-    // Render attached images at top of message
+    // Render attached files at top of message
     if (images.length > 0) {
         const imageRow = document.createElement("div");
         imageRow.className = "message-images";
         images.forEach(imgSrc => {
-            const thumb = document.createElement("img");
-            thumb.className = "message-image-thumb";
-            thumb.src = imgSrc;
-            thumb.alt = "Attached image";
-            thumb.addEventListener("click", () => openImageLightbox(imgSrc));
-            imageRow.appendChild(thumb);
+            if (imgSrc.startsWith("data:image/")) {
+                const thumb = document.createElement("img");
+                thumb.className = "message-image-thumb";
+                thumb.src = imgSrc;
+                thumb.alt = "Attached image";
+                thumb.addEventListener("click", () => openImageLightbox(imgSrc));
+                imageRow.appendChild(thumb);
+            } else if (imgSrc.startsWith("data:audio/")) {
+                const nameMatch = imgSrc.match(/name=([^;]+)/);
+                const title = nameMatch ? decodeURIComponent(nameMatch[1]) : "Ses Kaydı";
+                const audioWrap = createCustomAudioPlayer(imgSrc, title);
+                imageRow.appendChild(audioWrap);
+            } else if (imgSrc.startsWith("data:video/")) {
+                const videoWrap = document.createElement("div");
+                videoWrap.className = "message-video-player";
+                const video = document.createElement("video");
+                video.controls = true;
+                video.src = imgSrc;
+                video.preload = "metadata";
+                video.style.maxWidth = "320px";
+                video.style.borderRadius = "8px";
+                videoWrap.appendChild(video);
+                imageRow.appendChild(videoWrap);
+            } else {
+                // Generic file chip
+                const mimeLine = imgSrc.split(";")[0];
+                const mimeType = mimeLine.replace("data:", "");
+                const ext = mimeType.split("/").pop().substring(0, 4) || "FILE";
+
+                const fileChip = document.createElement("div");
+                fileChip.className = "message-file-chip";
+                fileChip.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>${ext.toUpperCase()} Ek</span>
+                `;
+                imageRow.appendChild(fileChip);
+            }
         });
         contentEl.appendChild(imageRow);
     }
@@ -606,14 +848,177 @@ function addMessageToDOM(role, content, extraNodes = [], images = [], nodeId = n
     return contentEl;
 }
 
-function addMessage(role, content, extraNodes = [], images = [], info = null) {
+function createCustomAudioPlayer(src, title = "Ses Kaydı") {
+    const wrap = document.createElement("div");
+    wrap.className = "custom-audio-player";
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "audio-player-header";
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "audio-player-title";
+    titleEl.textContent = title;
+
+    const downloadBtn = document.createElement("a");
+    downloadBtn.className = "audio-download-btn";
+    downloadBtn.href = src;
+    downloadBtn.download = title;
+    downloadBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>`;
+
+    header.appendChild(titleEl);
+    header.appendChild(downloadBtn);
+
+    // Controls container
+    const controlsWrap = document.createElement("div");
+    controlsWrap.className = "audio-player-controls";
+
+    const audio = document.createElement("audio");
+    audio.src = src;
+    audio.preload = "metadata";
+
+    const playBtn = document.createElement("button");
+    playBtn.className = "audio-play-btn";
+    playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+
+    const timeDisplay = document.createElement("span");
+    timeDisplay.className = "audio-time";
+    timeDisplay.textContent = "0:00";
+
+    const formatTime = (timeInSecs) => {
+        if (!timeInSecs || isNaN(timeInSecs)) return "0:00";
+        if (!isFinite(timeInSecs)) return "0:00";
+        const mins = Math.floor(timeInSecs / 60);
+        const secs = Math.floor(timeInSecs % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Use a stylized flex wave for the track
+    const trackArea = document.createElement("div");
+    trackArea.className = "audio-track-area";
+
+    // Fixed aesthetic pattern so players remain 1:1 visually matching
+    const wavePattern = [30, 50, 80, 45, 60, 100, 70, 55, 90, 40, 65, 85, 30, 50, 75, 40, 60, 35, 70, 45, 80];
+    const barsCount = wavePattern.length;
+    for (let i = 0; i < barsCount; i++) {
+        const bar = document.createElement("div");
+        bar.className = "audio-wave-bar";
+        bar.style.height = `${wavePattern[i]}%`;
+        trackArea.appendChild(bar);
+    }
+
+    const speedBtn = document.createElement("button");
+    speedBtn.className = "audio-speed-btn";
+    speedBtn.textContent = "1x";
+
+    let currentSpeed = 1;
+    speedBtn.onclick = (e) => {
+        e.stopPropagation();
+        const speeds = [1, 1.25, 1.5, 2];
+        const nextIndex = (speeds.indexOf(currentSpeed) + 1) % speeds.length;
+        currentSpeed = speeds[nextIndex];
+        audio.playbackRate = currentSpeed;
+        speedBtn.textContent = `${currentSpeed}x`;
+    };
+
+    let isPlaying = false;
+
+    playBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (isPlaying) {
+            audio.pause();
+        } else {
+            audio.play();
+        }
+    };
+
+    audio.addEventListener('play', () => {
+        isPlaying = true;
+        playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+    });
+
+    audio.addEventListener('pause', () => {
+        isPlaying = false;
+        playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+    });
+
+    audio.addEventListener('timeupdate', () => {
+        timeDisplay.textContent = formatTime(audio.currentTime);
+        if (audio.duration && isFinite(audio.duration)) {
+            const percent = (audio.currentTime / audio.duration) * 100;
+            // Update the bars to fill based on percentage
+            const bars = trackArea.querySelectorAll('.audio-wave-bar');
+            const activeCount = Math.floor((percent / 100) * barsCount);
+            bars.forEach((bar, idx) => {
+                if (idx < activeCount) {
+                    bar.classList.add("played");
+                } else {
+                    bar.classList.remove("played");
+                }
+            });
+        }
+    });
+
+    audio.addEventListener('loadedmetadata', () => {
+        // Chromium bug: recorded webm blobs have Infinity duration.
+        // We force standard duration indexing by scrubbing way out of bounds.
+        if (!isFinite(audio.duration)) {
+            // Scrubbing to arbitrary huge number resolves the max timeline boundary
+            audio.currentTime = 1e6;
+        } else {
+            timeDisplay.textContent = formatTime(audio.duration);
+        }
+    });
+
+    audio.addEventListener('durationchange', () => {
+        if (isFinite(audio.duration)) {
+            if (audio.currentTime > 1e5) {
+                // Return to start after our hack resolves boundary
+                audio.currentTime = 0;
+            }
+            timeDisplay.textContent = formatTime(audio.duration);
+        }
+    });
+
+    audio.addEventListener('ended', () => {
+        isPlaying = false;
+        playBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+        const bars = trackArea.querySelectorAll('.audio-wave-bar');
+        bars.forEach(bar => bar.classList.remove("played"));
+        if (isFinite(audio.duration)) {
+            timeDisplay.textContent = formatTime(audio.duration);
+        }
+    });
+
+    trackArea.onclick = (e) => {
+        e.stopPropagation();
+        if (audio.duration && isFinite(audio.duration)) {
+            const rect = trackArea.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            audio.currentTime = pos * audio.duration;
+        }
+    };
+
+    controlsWrap.appendChild(audio);
+    controlsWrap.appendChild(playBtn);
+    controlsWrap.appendChild(timeDisplay);
+    controlsWrap.appendChild(trackArea);
+    controlsWrap.appendChild(speedBtn);
+
+    wrap.appendChild(header);
+    wrap.appendChild(controlsWrap);
+
+    return wrap;
+}
+
+function addMessage(role, content, extraNodes = [], images = [], info = null, thoughtSignature = null) {
     let extraNodesHTML = "";
     if (extraNodes.length > 0) {
         const wrapper = document.createElement("div");
         extraNodes.forEach(node => wrapper.appendChild(node.cloneNode(true)));
         extraNodesHTML = wrapper.innerHTML;
     }
-    const node = createNode(role, content, activeNodeId, extraNodesHTML, images, info);
+    const node = createNode(role, content, activeNodeId, extraNodesHTML, images, info, thoughtSignature);
     activeNodeId = node.id;
     return addMessageToDOM(role, content, extraNodes, images, node.id, false, info);
 }
@@ -719,8 +1124,8 @@ function createActionBar(node, role) {
                 activeNodeId = node.parentId;
                 let overrideImages = null;
                 if (node.images && node.images.length > 0) {
-                    const match = node.images[0].match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
-                    if (match) { overrideImages = { base64: match[2], mime: match[1], fullArray: node.images }; }
+                    const match = node.images[0].match(/^data:([^;]+(?:;name=[^;]+)?);base64,(.*)$/);
+                    if (match) { overrideImages = { base64: match[2], mime: match[1].replace(/;name=[^;]+/, ''), fullArray: node.images }; }
                 }
                 sendMessage(newText, overrideImages);
             };
@@ -744,8 +1149,8 @@ function createActionBar(node, role) {
             activeNodeId = node.parentId;
             let overrideImages = null;
             if (node.images && node.images.length > 0) {
-                const match = node.images[0].match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
-                if (match) { overrideImages = { base64: match[2], mime: match[1], fullArray: node.images }; }
+                const match = node.images[0].match(/^data:([^;]+(?:;name=[^;]+)?);base64,(.*)$/);
+                if (match) { overrideImages = { base64: match[2], mime: match[1].replace(/;name=[^;]+/, ''), fullArray: node.images }; }
             }
             sendMessage(node.content, overrideImages);
         };
@@ -775,8 +1180,8 @@ function createActionBar(node, role) {
                 activeNodeId = userParent.id;
                 let overrideImages = null;
                 if (userParent.images && userParent.images.length > 0) {
-                    const match = userParent.images[0].match(/^data:(image\/[a-zA-Z]*);base64,(.*)$/);
-                    if (match) { overrideImages = { base64: match[2], mime: match[1], fullArray: userParent.images }; }
+                    const match = userParent.images[0].match(/^data:([^;]+(?:;name=[^;]+)?);base64,(.*)$/);
+                    if (match) { overrideImages = { base64: match[2], mime: match[1].replace(/;name=[^;]+/, ''), fullArray: userParent.images }; }
                 }
                 sendMessage(userParent.content, overrideImages, true);
             }
@@ -1279,7 +1684,9 @@ function addToolCall(parentEl, name, args, status) {
 }
 
 function renderMarkdown(text) {
-    let html = marked.parse(text);
+    // Hide memory tags from UI during streaming as well
+    let cleanText = text.replace(/<memory>[\s\S]*?(?:<\/memory>|$)/i, "").trim();
+    let html = marked.parse(cleanText);
 
     html = html.replace(/<pre><code(.*?)>/g, (match, attrs) => {
         let lang = "";
@@ -1360,8 +1767,8 @@ async function explainErrorWithAI(errorCode, toastMsg, rawError) {
     // Guard: if we're already explaining an error, don't try again (prevents infinite loops)
     if (isExplainingError) {
         addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
-        isProcessing = false;
-        sendBtn.disabled = false;
+        addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+        setProcessingState(false);
         return;
     }
 
@@ -1394,55 +1801,54 @@ async function explainErrorWithAI(errorCode, toastMsg, rawError) {
                 explainSource.close();
                 removeTypingIndicator();
                 if (explainText) addMessage("assistant", explainText);
-                isProcessing = false;
-                sendBtn.disabled = false;
+                if (explainText) addMessage("assistant", explainText);
+                setProcessingState(false);
                 isExplainingError = false;
             });
             explainSource.addEventListener("error_msg", () => {
                 explainSource.close();
                 removeTypingIndicator();
                 addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
-                isProcessing = false;
-                sendBtn.disabled = false;
+                addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+                setProcessingState(false);
                 isExplainingError = false;
             });
             explainSource.onerror = () => {
                 explainSource.close();
                 removeTypingIndicator();
                 addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
-                isProcessing = false;
-                sendBtn.disabled = false;
+                addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+                setProcessingState(false);
                 isExplainingError = false;
             };
         } else {
             addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
-            isProcessing = false;
-            sendBtn.disabled = false;
+            addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+            setProcessingState(false);
             isExplainingError = false;
         }
     } catch {
         addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
-        isProcessing = false;
-        sendBtn.disabled = false;
+        addMessage("assistant", `Error [${errorCode}]: ${toastMsg}`);
+        setProcessingState(false);
         isExplainingError = false;
     }
 }
 
 async function sendMessage(overrideText = null, overrideImages = null, isAiRerun = false) {
     const text = overrideText !== null ? overrideText : inputEl.value.trim();
-    if (!text || isProcessing) return;
+    if (!text && !overrideImages && attachedFiles.length === 0) return;
+    if (isProcessing) return;
 
-    isProcessing = true;
-    sendBtn.disabled = true;
+    setProcessingState(true);
     if (overrideText === null) {
         inputEl.value = "";
         autoResize();
     }
 
-    // Capture image for display before clearing
+    // Capture files for display before clearing
     const messageImages = [];
-    let sendImageBase64 = null;
-    let sendImageMime = null;
+    const sendFiles = []; // Array of {base64, mime}
 
     if (overrideImages) {
         if (overrideImages.fullArray) {
@@ -1450,19 +1856,29 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
         } else {
             messageImages.push(`data:${overrideImages.mime};base64,${overrideImages.base64}`);
         }
-        sendImageBase64 = overrideImages.base64;
-        sendImageMime = overrideImages.mime;
-    } else if (attachedImageBase64 && attachedImageMimeType) {
-        messageImages.push(`data:${attachedImageMimeType};base64,${attachedImageBase64}`);
-        sendImageBase64 = attachedImageBase64;
-        sendImageMime = attachedImageMimeType;
+        sendFiles.push({ base64: overrideImages.base64, mime: overrideImages.mime });
+    } else if (attachedFiles.length > 0) {
+        for (const f of attachedFiles) {
+            let dataUrl = f.dataUrl;
+            if (f.mimeType.startsWith('audio/') && f.name) {
+                // If the user recorded audio or uploaded audio, embed the name in the data URL so we can render it later
+                dataUrl = `data:${f.mimeType};name=${encodeURIComponent(f.name)};base64,${f.base64}`;
+            }
+            messageImages.push(dataUrl);
+            sendFiles.push({ base64: f.base64, mime: f.mimeType });
+        }
 
-        // Clear attachment
-        attachedImageBase64 = null;
-        attachedImageMimeType = null;
+        // Clear attachments
+        attachedFiles = [];
         imagePreview.classList.add("hidden");
         previewImg.src = "";
+        previewImg.classList.remove("hidden");
         imageUpload.value = "";
+        const fileIcon = document.getElementById("generic-file-icon");
+        if (fileIcon) fileIcon.classList.add("hidden");
+        // Clear multi-preview container
+        const multiContainer = document.getElementById("multi-preview-container");
+        if (multiContainer) multiContainer.innerHTML = "";
     }
 
     let historyNodeId = activeNodeId;
@@ -1487,6 +1903,8 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
         addMessage("user", text, [], messageImages);
     }
 
+
+
     const assistantContent = addTypingIndicator();
 
     // Start tracking time for the assistant node
@@ -1504,13 +1922,13 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
     };
 
     const sysPrompt = systemPromptInput.value.trim();
-    if (sysPrompt) {
-        payload.system_instruction = sysPrompt;
-    }
+    const memoryDirective = `\n\n[SYSTEM DIRECTIVE: At the very end of your response, you MUST include a <memory> tag containing 3-5 concise keywords or a short summary of the important concepts from this specific interaction. Example: <memory>Roblox Studio, Script injection, Event handling</memory>]`;
 
-    if (sendImageBase64 && sendImageMime) {
-        payload.image_base64 = sendImageBase64;
-        payload.image_mime_type = sendImageMime;
+    payload.system_instruction = sysPrompt ? (sysPrompt + memoryDirective) : memoryDirective;
+
+    if (sendFiles.length > 0) {
+        payload.file_base64 = sendFiles.map(f => f.base64);
+        payload.file_mime_type = sendFiles.map(f => f.mime);
     }
 
     let infoData = null;
@@ -1534,17 +1952,20 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
         }
 
         const data = await res.json();
-        const chatId = data.chat_id;
+        currentChatId = data.chat_id;
 
-        const evtSource = new EventSource(`${API_BASE}/chat/events/${chatId}`);
+        activeEventSource = new EventSource(`${API_BASE}/chat/events/${currentChatId}`);
+        const evtSource = activeEventSource;
 
         let toolCalls = {};
         let finalText = "";
         let totalTokens = 0;
+        let lastThoughtSignature = null;
 
         let switchedToThinking = false;
 
         evtSource.addEventListener("tool_call", (e) => {
+            if (isAborting) return;
             if (!switchedToThinking) {
                 switchToThinkingPhase();
                 switchedToThinking = true;
@@ -1560,6 +1981,7 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
         });
 
         evtSource.addEventListener("tool_result", (e) => {
+            if (isAborting) return;
             const payload = JSON.parse(e.data);
             const key = payload.name + "_" + (payload.call_index || 0);
             const refs = toolCalls[key];
@@ -1572,6 +1994,7 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
         });
 
         evtSource.addEventListener("thinking", (e) => {
+            if (isAborting) return;
             if (!switchedToThinking) {
                 switchToThinkingPhase();
                 switchedToThinking = true;
@@ -1580,59 +2003,59 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
             addThinkingSection(assistantContent, payload.content);
         });
 
+        evtSource.addEventListener("thought_signature", (e) => {
+            if (isAborting) return;
+            const payload = JSON.parse(e.data);
+            lastThoughtSignature = payload.signature;
+            console.log("Captured thought signature:", lastThoughtSignature);
+        });
+
+        let liveTextNode = null;
+
         evtSource.addEventListener("text", (e) => {
+            if (isAborting) return;
             if (!switchedToThinking) {
                 switchToThinkingPhase();
                 switchedToThinking = true;
             }
+
+            // Hide indicators once text starts flowing
+            const indicatorEl = assistantContent.querySelector(".connecting-indicator, .thinking-indicator");
+            if (indicatorEl && indicatorEl.style.display !== "none") {
+                indicatorEl.style.display = "none";
+            }
+
+            // Create streaming text container if it doesn't exist yet
+            if (!liveTextNode) {
+                liveTextNode = document.createElement("div");
+                liveTextNode.className = "live-markdown-stream";
+                assistantContent.appendChild(liveTextNode);
+            }
+
             const payload = JSON.parse(e.data);
             finalText += payload.content;
+
+            // Live render markdown to the DOM
+            let displayString = finalText;
+            const memoryMatch = displayString.match(/<memory>([\s\S]*?)(?:<\/memory>|$)/i);
+            if (memoryMatch) {
+                displayString = displayString.replace(/<memory>[\s\S]*?(?:<\/memory>|$)/i, "").trim();
+            }
+            liveTextNode.innerHTML = renderMarkdown(displayString);
+
+            // In a streaming context we could add copy buttons on the fly, 
+            // but it's cleaner to just let it finish.
+            scrollToBottom();
 
             // Rough estimate mapping if exact tokens aren't streamed
             // Avg 4 chars per token
             totalTokens += Math.ceil(payload.content.length / 4);
         });
 
-        evtSource.addEventListener("done", () => {
-            evtSource.close();
-
-            const durationMs = Date.now() - startTimeStamp;
-            const durationSec = (durationMs / 1000).toFixed(1);
-            infoData = { tokens: totalTokens, time: durationSec };
-
-            // Instead of just collecting inner nodes and removing the typing message which destroys them
-            const typingMsg = document.getElementById("typing-message");
-            const extraNodes = [];
-            if (typingMsg) {
-                // Relocate nodes from typingMsg directly to extraNodes list
-                const nodesToKeep = typingMsg.querySelectorAll('.thought-chain, .tool-call');
-                nodesToKeep.forEach(node => {
-                    extraNodes.push(node);
-                });
-            }
-
-            if (finalText) {
-                // addMessage will append extraNodes
-                addMessage("assistant", finalText, extraNodes, [], infoData);
-                if (activeNodeId && chatTree[activeNodeId]) {
-                    chatTree[activeNodeId].info = infoData;
-                }
-            } else if (extraNodes.length > 0) {
-                // Even if no text, keep the thought chain
-                addMessage("assistant", "", extraNodes, [], infoData);
-                if (activeNodeId && chatTree[activeNodeId]) {
-                    chatTree[activeNodeId].info = infoData;
-                }
-            }
-
-            removeTypingIndicator();
-
-            isProcessing = false;
-            sendBtn.disabled = false;
-            inputEl.focus();
-        });
+        let hasError = false;
 
         evtSource.addEventListener("error_msg", async (e) => {
+            hasError = true;
             evtSource.close();
             removeTypingIndicator();
             const payload = JSON.parse(e.data);
@@ -1644,24 +2067,92 @@ async function sendMessage(overrideText = null, overrideImages = null, isAiRerun
             await explainErrorWithAI(errorCode, toastMsg, rawError);
         });
 
+        finishGenerationHandler = () => {
+            try {
+                if (evtSource.readyState !== 2) {
+                    evtSource.close();
+                }
+
+                const infoData = {
+                    model: currentModel,
+                    tokens: totalTokens,
+                    time: ((Date.now() - startTimeStamp) / 1000).toFixed(1),
+                    thoughtSignature: lastThoughtSignature
+                };
+
+                const typingMsg = document.getElementById("typing-message");
+                const extraNodes = [];
+                if (typingMsg) {
+                    const nodesToKeep = typingMsg.querySelectorAll('.thought-chain, .tool-call');
+                    nodesToKeep.forEach(node => {
+                        extraNodes.push(node);
+                    });
+                }
+
+                // Parse out the <memory> tag if it exists
+                let displayString = finalText;
+                let extractedMemory = null;
+                const memoryMatch = displayString.match(/<memory>([\s\S]*?)<\/memory>/i);
+                if (memoryMatch) {
+                    extractedMemory = memoryMatch[1].trim();
+                    displayString = displayString.replace(/<memory>[\s\S]*?<\/memory>/i, "").trim();
+                }
+
+                const finalNodes = Array.from(assistantContent.querySelectorAll('.thought-chain, .tool-call'));
+
+                if (!displayString && !extractedMemory && finalNodes.length === 0 && !hasError && !isAborting) {
+                    addMessage("assistant", "Empty response from stream or connection closed unexpectedly.", [], [], infoData, lastThoughtSignature);
+                } else if (!hasError || isAborting) {
+                    // Even if there's an error elsewhere, if we're aborting, just show what we have
+                    addMessage("assistant", displayString, finalNodes, [], infoData, lastThoughtSignature);
+                }
+
+                if (activeNodeId && chatTree[activeNodeId]) {
+                    chatTree[activeNodeId].info = infoData;
+                    if (extractedMemory) {
+                        chatTree[activeNodeId].model_keypoints = extractedMemory;
+                    }
+                    if (lastThoughtSignature) {
+                        chatTree[activeNodeId].thoughtSignature = lastThoughtSignature;
+                    }
+                }
+            } catch (e) {
+                console.error("Error finishing generation:", e);
+            } finally {
+                removeTypingIndicator();
+                setProcessingState(false);
+                isAborting = false;
+                activeEventSource = null;
+                currentChatId = null;
+                finishGenerationHandler = null;
+                inputEl.focus();
+            }
+        };
+
+        evtSource.addEventListener("done", finishGenerationHandler);
+
+        // Removed error_msg block since it was moved above finishGenerationHandler to be in scope for `hasError`
+
         evtSource.onerror = () => {
             evtSource.close();
             removeTypingIndicator();
-            if (!finalText) {
+            if (!finalText && !hasError) {
                 const msg = "Connection lost. Please try again.";
                 addMessage("assistant", msg);
                 showToast(msg, "error");
             }
-            isProcessing = false;
-            sendBtn.disabled = false;
+            setProcessingState(false);
+            activeEventSource = null;
+            currentChatId = null;
         };
     } catch (err) {
         removeTypingIndicator();
         const msg = `Connection error: ${err.message}`;
         addMessage("assistant", msg);
         showToast(msg, "error");
-        isProcessing = false;
-        sendBtn.disabled = false;
+        setProcessingState(false);
+        activeEventSource = null;
+        currentChatId = null;
     }
 }
 
@@ -1874,7 +2365,10 @@ ghostBtn.addEventListener("click", () => {
     console.log("Ghost button clicked - coming soon!");
 });
 
-sendBtn.addEventListener("click", () => sendMessage());
+sendBtn.addEventListener("click", () => {
+    if (isProcessing) abortGeneration();
+    else sendMessage();
+});
 
 inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1885,11 +2379,7 @@ inputEl.addEventListener("keydown", (e) => {
 
 inputEl.addEventListener("input", () => {
     autoResize();
-    if (inputEl.value.trim() && !isProcessing) {
-        sendBtn.classList.add("active");
-    } else {
-        sendBtn.classList.remove("active");
-    }
+    updateSendButtonState();
 });
 
 saveKeyBtn.addEventListener("click", async () => {
@@ -1987,29 +2477,410 @@ tempSlider.addEventListener("input", () => {
     tempVal.textContent = tempSlider.value;
 });
 
-btnAttach.addEventListener("click", () => {
+// --- Attach Popover Menu ---
+const attachPopover = document.getElementById("attach-popover");
+const attachUploadBtn = document.getElementById("attach-upload-files");
+const attachRecordBtn = document.getElementById("attach-record-audio");
+const attachCameraBtn = document.getElementById("attach-use-camera");
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecordingAudio = false;
+
+// Toggle popover on attach button click
+btnAttach.addEventListener("click", (e) => {
+    e.stopPropagation();
+    attachPopover.classList.toggle("hidden");
+    // Close model popover if open
+    modelPopover.classList.add("hidden");
+});
+
+// Close popover on outside click
+document.addEventListener("click", (e) => {
+    if (!attachPopover.contains(e.target) && e.target !== btnAttach && !btnAttach.contains(e.target)) {
+        attachPopover.classList.add("hidden");
+    }
+});
+
+// Option 1: Upload Files
+attachUploadBtn.addEventListener("click", () => {
+    attachPopover.classList.add("hidden");
     imageUpload.click();
 });
 
+// Option 2: Record Audio
+// Recording Logic with Floating UI
+let recordDurationSec = 0;
+let recordTimerInterval = null;
+
+function updateRecordTime() {
+    const min = Math.floor(recordDurationSec / 60).toString().padStart(2, "0");
+    const sec = (recordDurationSec % 60).toString().padStart(2, "0");
+    document.getElementById("record-time").textContent = `${min}:${sec}`;
+}
+
+function stopAndCleanupRecording(isCancel) {
+    if (isCancel) {
+        isRecordingAudio = false;
+    }
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop(); // This triggers onstop, where attachedFiles is populated
+    }
+    if (recordTimerInterval) clearInterval(recordTimerInterval);
+    document.getElementById("recording-overlay").classList.add("hidden");
+    // We let onstop handle throwing away data if isRecordingAudio is false
+}
+
+document.getElementById("btn-cancel-record").addEventListener("click", () => {
+    stopAndCleanupRecording(true); // Cancel
+});
+
+document.getElementById("btn-save-record").addEventListener("click", () => {
+    stopAndCleanupRecording(false); // Save
+});
+
+attachRecordBtn.addEventListener("click", async () => {
+    attachPopover.classList.add("hidden");
+
+    if (mediaRecorder && mediaRecorder.state !== "inactive") return;
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Let's use audio/webm as it is widely supported in Electron for recording
+        // We will save it as .ogg extension because Gemini likes it, but webm is fine too.
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        // Real-time Audio Visualizer Logic
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        analyser.fftSize = 64;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const bars = document.querySelectorAll(".waveform .bar");
+        let animationFrameId;
+
+        function updateWaveform() {
+            if (!isRecordingAudio || mediaRecorder.state === "inactive") return;
+            animationFrameId = requestAnimationFrame(updateWaveform);
+            analyser.getByteFrequencyData(dataArray);
+
+            // Calculate average volume
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            let avg = sum / bufferLength;
+
+            // Map avg (0-255) to a height between 4px and 22px
+            const minHeight = 4;
+            const maxHeight = 22;
+
+            // Adjust sensitivity (avg is usually small for normal talking, 0-50)
+            // Multiply by a bigger factor to see movement
+            let scaled = minHeight + (avg / 60) * (maxHeight - minHeight);
+
+            bars.forEach((bar, j) => {
+                // Add tiny variations to each bar based on index for a dynamic look
+                let h = scaled * (0.8 + Math.sin((j + 1) * avg * 0.1) * 0.3);
+
+                if (h > maxHeight) h = maxHeight;
+                if (h < minHeight || isNaN(h)) h = minHeight;
+                bar.style.height = `${h}px`;
+            });
+        }
+
+        mediaRecorder.onstop = () => {
+            stream.getTracks().forEach(track => track.stop());
+            if (audioContext.state !== "closed") audioContext.close();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+            // Reset bars
+            bars.forEach(bar => bar.style.height = '4px');
+
+            // If it was cancelled, discard
+            if (!isRecordingAudio) {
+                audioChunks = [];
+                return;
+            }
+
+            const blob = new Blob(audioChunks, { type: "audio/webm" });
+            if (blob.size > 100 * 1024 * 1024) {
+                const sizeMB = (blob.size / (1024 * 1024)).toFixed(1);
+                showToast(t("errors.fileTooLarge", { size: sizeMB }), "error");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const fullDataUrl = ev.target.result;
+                const parts = fullDataUrl.split(",");
+                const mimeLine = parts[0];
+                const mimeType = mimeLine.match(/:(.*?);/)[1];
+                const base64 = parts[1];
+
+                // Add to attachments
+                attachedFiles.push({ base64, mimeType, name: "Audio_Recording.ogg", dataUrl: fullDataUrl });
+                renderAttachmentPreviews();
+            };
+            reader.readAsDataURL(blob);
+            audioChunks = [];
+        };
+
+        // Reset and show UI
+        recordDurationSec = 0;
+        updateRecordTime();
+        document.getElementById("recording-overlay").classList.remove("hidden");
+
+        isRecordingAudio = true; // This is crucial for save functionality
+        mediaRecorder.start();
+        updateWaveform(); // start visualizer
+
+        recordTimerInterval = setInterval(() => {
+            recordDurationSec++;
+            updateRecordTime();
+        }, 1000);
+
+    } catch (err) {
+        console.error("Mic access denied or error:", err);
+        showToast("Mikrofon erişimi reddedildi veya hata oluştu.", "error");
+    }
+});
+
+// Option 3: Use Camera (with live preview modal)
+attachCameraBtn.addEventListener("click", async () => {
+    attachPopover.classList.add("hidden");
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+        // Create camera modal overlay
+        const overlay = document.createElement("div");
+        overlay.id = "camera-modal-overlay";
+        overlay.className = "camera-modal-overlay";
+
+        const modal = document.createElement("div");
+        modal.className = "camera-modal";
+
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.className = "camera-preview-video";
+
+        const btnRow = document.createElement("div");
+        btnRow.className = "camera-modal-actions";
+
+        const captureBtn = document.createElement("button");
+        captureBtn.className = "camera-capture-btn";
+        captureBtn.title = t("attach.capturePhoto") || "Capture";
+
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "camera-close-btn";
+        closeBtn.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        `;
+
+        const cleanupCamera = () => {
+            stream.getTracks().forEach(track => track.stop());
+            overlay.remove();
+        };
+
+        closeBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            cleanupCamera();
+        });
+
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) cleanupCamera();
+        });
+
+        captureBtn.addEventListener("click", () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext("2d").drawImage(video, 0, 0);
+            cleanupCamera();
+
+            const dataUrl = canvas.toDataURL("image/png");
+            const parts = dataUrl.split(",");
+            const base64 = parts[1];
+
+            attachedFiles.push({ base64, mimeType: "image/png", name: "camera_capture.png", dataUrl });
+            renderAttachmentPreviews();
+        });
+
+        modal.appendChild(video);
+        modal.appendChild(btnRow);
+        btnRow.appendChild(captureBtn); // Only capture button in the bottom row now
+        overlay.appendChild(modal);
+        overlay.appendChild(closeBtn); // Close button is absolute positioned at top right
+        document.body.appendChild(overlay);
+
+        await new Promise(resolve => { video.onloadedmetadata = resolve; });
+        await video.play();
+    } catch (err) {
+        console.error("Camera access denied:", err);
+        showToast(t("errors.cameraDenied") || "Kamera erişimi reddedildi.", "error");
+    }
+});
+
+
+// Check camera availability on load
+async function checkCameraAvailability() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const hasCamera = devices.some(d => d.kind === "videoinput");
+        attachCameraBtn.disabled = !hasCamera;
+    } catch {
+        attachCameraBtn.disabled = true;
+    }
+}
+checkCameraAvailability();
+
 imageUpload.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        const fullDataUrl = ev.target.result;
-        // e.g. "data:image/png;base64,iVBORw0KGgo..."
-        const parts = fullDataUrl.split(",");
-        const mimeLine = parts[0];
-        attachedImageMimeType = mimeLine.match(/:(.*?);/)[1];
-        attachedImageBase64 = parts[1];
+    for (const file of files) {
+        // Disallow zip files explicitly
+        if (file.name.endsWith(".zip") || file.name.endsWith(".rar") || file.name.endsWith(".7z")) {
+            showToast(t("errors.unsupportedFile", { name: file.name }) || `"${file.name}" desteklenmiyor.`, "error");
+            continue;
+        }
 
-        previewImg.src = fullDataUrl;
+        if (file.size > 100 * 1024 * 1024) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            showToast(t("errors.fileTooLarge", { size: sizeMB }), "error");
+            continue;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const fullDataUrl = ev.target.result;
+            const parts = fullDataUrl.split(",");
+            const mimeLine = parts[0];
+            const base64 = parts[1];
+
+            let resolvedMime = getMimeType(file.name, mimeLine.match(/:(.*?);/)[1], file.type);
+            if (!resolvedMime || resolvedMime === 'application/octet-stream') {
+                resolvedMime = detectMimeFromBase64(base64) || 'application/octet-stream';
+            }
+
+            const mimeType = toGeminiMime(resolvedMime);
+            if (!mimeType) {
+                // Can't be converted — check if truly binary
+                if (isLikelyBinary(base64)) {
+                    showToast(t("errors.unsupportedFile", { name: file.name }) || `"${file.name}" desteklenmiyor.`, "error");
+                    return;
+                }
+                // Not binary — send as text/plain as last resort
+                const safeUrl = `data:text/plain;base64,${base64}`;
+                attachedFiles.push({ base64, mimeType: 'text/plain', name: file.name, dataUrl: safeUrl });
+                renderAttachmentPreviews();
+                return;
+            }
+
+            const correctedDataUrl = resolvedMime !== mimeType
+                ? `data:${mimeType};base64,${base64}`
+                : fullDataUrl;
+
+            attachedFiles.push({ base64, mimeType, name: file.name, dataUrl: correctedDataUrl });
+            renderAttachmentPreviews();
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+function renderAttachmentPreviews() {
+    // Hide single legacy preview
+    previewImg.classList.add("hidden");
+    const oldIcon = document.getElementById("generic-file-icon");
+    if (oldIcon) oldIcon.classList.add("hidden");
+
+    // Get or create multi-preview container
+    let container = document.getElementById("multi-preview-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "multi-preview-container";
+        container.className = "multi-preview-strip";
+        imagePreview.insertBefore(container, btnRemoveImg);
+    }
+    container.innerHTML = "";
+
+    attachedFiles.forEach((f, index) => {
+        const item = document.createElement("div");
+        item.className = "multi-preview-item";
+
+        // Add click to preview
+        item.addEventListener("click", () => {
+            if (f.mimeType.startsWith("image/")) {
+                openImageLightbox(f.dataUrl);
+            }
+        });
+
+        // Add remove button
+        const removeBtn = document.createElement("div");
+        removeBtn.className = "remove-btn";
+        removeBtn.innerHTML = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        `;
+
+        removeBtn.addEventListener("click", (e) => {
+            e.stopPropagation(); // Don't trigger preview
+            attachedFiles.splice(index, 1);
+            renderAttachmentPreviews();
+        });
+        item.appendChild(removeBtn);
+
+        if (f.mimeType.startsWith("image/")) {
+            const img = document.createElement("img");
+            img.src = f.dataUrl;
+            img.alt = f.name;
+            item.appendChild(img);
+        } else if (f.mimeType.startsWith("audio/")) {
+            const customPlayer = createCustomAudioPlayer(f.dataUrl);
+            item.appendChild(customPlayer);
+            // Don't trigger standard preview on click for audio controls
+            item.onclick = (e) => e.stopPropagation();
+        } else {
+            const ext = f.name.split('.').pop().substring(0, 4);
+            const fileIcon = document.createElement("div");
+            fileIcon.style.display = "contents";
+            fileIcon.innerHTML = `
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span class="multi-preview-ext">${ext.toUpperCase()}</span>
+            `;
+            item.appendChild(fileIcon);
+        }
+        container.appendChild(item);
+    });
+
+    if (attachedFiles.length > 0) {
         imagePreview.classList.remove("hidden");
         btnAttach.classList.add("active");
-    };
-    reader.readAsDataURL(file);
-});
+    } else {
+        imagePreview.classList.add("hidden");
+        btnAttach.classList.remove("active");
+    }
+    updateSendButtonState();
+}
+
 
 // Make the input preview image clickable
 previewImg.addEventListener("click", () => {
@@ -2019,31 +2890,121 @@ previewImg.addEventListener("click", () => {
 });
 previewImg.style.cursor = "pointer";
 
-// Ctrl+V paste image support
+document.body.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.body.classList.add("drag-active");
+});
+
+document.body.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only remove if we really left the window
+    if (!e.relatedTarget || e.relatedTarget.nodeName === "HTML") {
+        document.body.classList.remove("drag-active");
+    }
+});
+
+document.body.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    document.body.classList.remove("drag-active");
+
+    const files = Array.from(e.dataTransfer.files);
+    if (!files.length) return;
+
+    for (const file of files) {
+        if (file.name.endsWith(".zip") || file.name.endsWith(".rar") || file.name.endsWith(".7z")) {
+            showToast(t("errors.unsupportedFile", { name: file.name }) || `"${file.name}" desteklenmiyor.`, "error");
+            continue;
+        }
+        if (file.size > 100 * 1024 * 1024) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            showToast(t("errors.fileTooLarge", { size: sizeMB }), "error");
+            continue;
+        }
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const fullDataUrl = ev.target.result;
+            const parts = fullDataUrl.split(",");
+            const mimeLine = parts[0];
+            const base64 = parts[1];
+
+            let resolvedMime = getMimeType(file.name, mimeLine.match(/:(.*?);/)[1], file.type);
+            if (!resolvedMime || resolvedMime === 'application/octet-stream') {
+                resolvedMime = detectMimeFromBase64(base64) || 'application/octet-stream';
+            }
+
+            const mimeType = toGeminiMime(resolvedMime);
+            if (!mimeType) {
+                if (isLikelyBinary(base64)) {
+                    showToast(t("errors.unsupportedFile", { name: file.name }) || `"${file.name}" desteklenmiyor.`, "error");
+                    return;
+                }
+                attachedFiles.push({ base64, mimeType: 'text/plain', name: file.name, dataUrl: `data:text/plain;base64,${base64}` });
+                renderAttachmentPreviews();
+                return;
+            }
+
+            const correctedDataUrl = resolvedMime !== mimeType
+                ? `data:${mimeType};base64,${base64}`
+                : fullDataUrl;
+            attachedFiles.push({ base64, mimeType, name: file.name, dataUrl: correctedDataUrl });
+            renderAttachmentPreviews();
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+// Ctrl+V paste file support
 document.addEventListener("paste", (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
     for (const item of items) {
-        if (item.type.startsWith("image/")) {
+        if (item.kind === "file") {
             e.preventDefault();
             const file = item.getAsFile();
-            if (!file) return;
-
+            if (!file) continue;
+            if (file.name.endsWith(".zip") || file.name.endsWith(".rar") || file.name.endsWith(".7z")) {
+                showToast(t("errors.unsupportedFile", { name: file.name }) || `"${file.name}" desteklenmiyor.`, "error");
+                continue;
+            }
+            if (file.size > 100 * 1024 * 1024) {
+                const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                showToast(t("errors.fileTooLarge", { size: sizeMB }), "error");
+                continue;
+            }
             const reader = new FileReader();
             reader.onload = (ev) => {
                 const fullDataUrl = ev.target.result;
                 const parts = fullDataUrl.split(",");
                 const mimeLine = parts[0];
-                attachedImageMimeType = mimeLine.match(/:(.*?);/)[1];
-                attachedImageBase64 = parts[1];
+                const base64 = parts[1];
 
-                previewImg.src = fullDataUrl;
-                imagePreview.classList.remove("hidden");
-                btnAttach.classList.add("active");
+                let resolvedMime = getMimeType(file.name, mimeLine.match(/:(.*?);/)[1], file.type);
+                if (!resolvedMime || resolvedMime === 'application/octet-stream') {
+                    resolvedMime = detectMimeFromBase64(base64) || 'application/octet-stream';
+                }
+
+                const mimeType = toGeminiMime(resolvedMime);
+                if (!mimeType) {
+                    if (isLikelyBinary(base64)) {
+                        showToast(t("errors.unsupportedFile", { name: file.name }) || `"${file.name}" desteklenmiyor.`, "error");
+                        return;
+                    }
+                    attachedFiles.push({ base64, mimeType: 'text/plain', name: file.name, dataUrl: `data:text/plain;base64,${base64}` });
+                    renderAttachmentPreviews();
+                    return;
+                }
+
+                const correctedDataUrl = resolvedMime !== mimeType
+                    ? `data:${mimeType};base64,${base64}`
+                    : fullDataUrl;
+                attachedFiles.push({ base64, mimeType, name: file.name, dataUrl: correctedDataUrl });
+                renderAttachmentPreviews();
             };
             reader.readAsDataURL(file);
-            break;
         }
     }
 });
@@ -2059,12 +3020,16 @@ document.addEventListener("keydown", (e) => {
 });
 
 btnRemoveImg.addEventListener("click", () => {
-    attachedImageBase64 = null;
-    attachedImageMimeType = null;
+    attachedFiles = [];
     imagePreview.classList.add("hidden");
     previewImg.src = "";
+    previewImg.classList.remove("hidden");
     imageUpload.value = "";
     btnAttach.classList.remove("active");
+    const fileIcon = document.getElementById("generic-file-icon");
+    if (fileIcon) fileIcon.classList.add("hidden");
+    const multiContainer = document.getElementById("multi-preview-container");
+    if (multiContainer) multiContainer.innerHTML = "";
 });
 
 btnSearch.addEventListener("click", () => {

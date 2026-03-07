@@ -1,4 +1,5 @@
 use axum::routing::{get, post};
+use axum::extract::DefaultBodyLimit;
 use clap::Parser;
 use color_eyre::eyre::Result;
 use rbx_studio_server::*;
@@ -55,7 +56,8 @@ async fn main() -> Result<()> {
             .route("/request", get(request_handler))
             .route("/response", post(response_handler))
             .route("/proxy", post(proxy_handler))
-            .route("/chat/send", post(chat_send_handler))
+            .route("/chat/send", post(chat_send_handler).layer(DefaultBodyLimit::max(50 * 1024 * 1024)))
+            .route("/chat/stop", post(chat_stop_handler))
             .route("/chat/events/{id}", get(chat_events_handler))
             .route("/chat/api-key", post(api_key_handler))
             .route("/chat/status", get(status_handler))
